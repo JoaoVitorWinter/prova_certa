@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'turmas_screen.dart';
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -10,12 +12,18 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('AvaliaPro'),
       ),
-      body: const Center(
-        child: Text(
-          'Home',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TurmasScreen(),
+              ),
+            );
+          },
+          child: const Text(
+            'Ver turmas',
           ),
         ),
       ),
