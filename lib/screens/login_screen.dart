@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -85,9 +86,9 @@ class LoginScreen extends StatelessWidget {
                     TextField(
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        hintText: 'seuemail@email.com',
+                        hintText: 'seuemail@email.com.br',
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: Colors.white,    
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 18,
                           vertical: 17,
@@ -177,26 +178,33 @@ class LoginScreen extends StatelessWidget {
                     const SizedBox(height: 8),
 
                     SizedBox(
-                      height: 55,
-                      child: ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF713CEB),
-                          foregroundColor: Colors.white,
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(17),
-                          ),
-                        ),
-                        child: const Text(
-                          'Entrar',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
+  height: 55,
+  child: ElevatedButton(
+    onPressed: () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const HomeScreen(),
+        ),
+      );
+    },
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF713CEB),
+      foregroundColor: Colors.white,
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(17),
+      ),
+    ),
+    child: const Text(
+      'Entrar',
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
 
                     const SizedBox(height: 40),
                   ],
