@@ -1,25 +1,18 @@
 import 'package:flutter/material.dart';
+import 'screens/login_screen.dart';
 
 void main() {
-  runApp(const AvaliaProApp());
+  runApp(const ProvaCertaApp());
 }
 
-class AvaliaProApp extends StatelessWidget {
-  const AvaliaProApp({super.key});
+class ProvaCertaApp extends StatelessWidget {
+  const ProvaCertaApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'AvaliaPro',
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('AvaliaPro'),
-        ),
-        body: const Center(
-          child: Text('AvaliaPro'),
-        ),
-      ),
+      home: LoginScreen(),
     );
   }
 }
