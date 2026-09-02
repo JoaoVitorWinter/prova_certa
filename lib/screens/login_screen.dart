@@ -178,33 +178,33 @@ class LoginScreen extends StatelessWidget {
                     const SizedBox(height: 8),
 
                     SizedBox(
-  height: 55,
-  child: ElevatedButton(
-    onPressed: () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const HomeScreen(),
-        ),
-      );
-    },
-    style: ElevatedButton.styleFrom(
-      backgroundColor: const Color(0xFF713CEB),
-      foregroundColor: Colors.white,
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(17),
-      ),
-    ),
-    child: const Text(
-      'Entrar',
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-  ),
-),
+                        height: 55,
+                        child: ElevatedButton(
+                            onPressed: () {
+                                Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) => const HomeScreen(),
+                                    ),
+                                );
+                            },
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF713CEB),
+                                foregroundColor: Colors.white,
+                                elevation: 4,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(17),
+                                ),
+                            ),
+                            child: const Text(
+                                'Entrar',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                ),
+                            ),
+                        ),
+                    ),
 
                     const SizedBox(height: 40),
                   ],
