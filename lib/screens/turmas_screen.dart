@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../mocks/turmas_mock.dart';
 import 'turma_detalhes_screen.dart';
+import 'nova_turma_screen.dart';
 
 class TurmasScreen extends StatelessWidget {
   const TurmasScreen({super.key});
@@ -15,12 +16,10 @@ class TurmasScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
-
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 0,
-
         title: const Text(
           'Turmas',
           style: TextStyle(
@@ -33,14 +32,24 @@ class TurmasScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: TextButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Cadastro de turma ainda não implementado.',
-                    ),
+              onPressed: () async {
+                final criada = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const NovaTurmaScreen(),
                   ),
                 );
+
+                if (criada == true && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Turma criada com sucesso.',
+                      ),
+                    ),
+                  );
+                }
               },
               icon: const Icon(Icons.add),
               label: const Text('Nova'),
@@ -129,9 +138,7 @@ class TurmasScreen extends StatelessWidget {
                             Container(
                               width: 58,
                               height: 58,
-
                               alignment: Alignment.center,
-
                               decoration: BoxDecoration(
                                 color: const Color(0xFFEFF2FF),
                                 borderRadius: BorderRadius.circular(18),
