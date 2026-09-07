@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/aluno.dart';
 import '../models/turma.dart';
 import '../widgets/app_bottom_navigation.dart';
+import 'home_screen.dart';
 import 'importar_alunos_screen.dart';
 import 'provas_screen.dart';
 
@@ -247,6 +248,12 @@ class TurmaDetalhesScreen extends StatelessWidget {
           ),
           AppBottomNavigation(
             currentItem: AppNavigationItem.turmas,
+            onInicio: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+              );
+            },
             onProvas: () {
               Navigator.pushReplacement(
                 context,

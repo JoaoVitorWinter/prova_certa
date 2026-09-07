@@ -4,12 +4,14 @@ enum AppNavigationItem { inicio, provas, corrigir, resultados, turmas }
 
 class AppBottomNavigation extends StatelessWidget {
   final AppNavigationItem currentItem;
+  final VoidCallback? onInicio;
   final VoidCallback? onProvas;
   final VoidCallback? onTurmas;
 
   const AppBottomNavigation({
     super.key,
     required this.currentItem,
+    this.onInicio,
     this.onProvas,
     this.onTurmas,
   });
@@ -29,6 +31,7 @@ class AppBottomNavigation extends StatelessWidget {
             icon: Icons.home_outlined,
             label: 'Início',
             selected: currentItem == AppNavigationItem.inicio,
+            onTap: onInicio,
           ),
           _NavigationItem(
             icon: Icons.description_outlined,

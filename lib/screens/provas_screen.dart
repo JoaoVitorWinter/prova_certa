@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../mocks/provas_mock.dart';
 import '../models/prova.dart';
 import '../widgets/app_bottom_navigation.dart';
+import 'home_screen.dart';
 import 'nova_prova_screen.dart';
 import 'turmas_screen.dart';
 
@@ -57,6 +58,12 @@ class _ProvasScreenState extends State<ProvasScreen> {
             ),
             AppBottomNavigation(
               currentItem: AppNavigationItem.provas,
+              onInicio: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomeScreen()),
+                );
+              },
               onTurmas: () {
                 Navigator.pushReplacement(
                   context,
