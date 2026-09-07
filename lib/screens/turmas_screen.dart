@@ -38,18 +38,13 @@ class TurmasScreen extends StatelessWidget {
                 final criada = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        const NovaTurmaScreen(),
+                    builder: (context) => const NovaTurmaScreen(),
                   ),
                 );
 
                 if (criada == true && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Turma criada com sucesso.',
-                      ),
-                    ),
+                    const SnackBar(content: Text('Turma criada com sucesso.')),
                   );
                 }
               },
@@ -73,143 +68,143 @@ class TurmasScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _ResumoCard(
-                      valor: '${turmasMock.length}',
-                      titulo: 'Turmas ativas',
-                      cor: const Color(0xFF6545E8),
-                      fundo: const Color(0xFFEFF2FF),
-                    ),
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    child: _ResumoCard(
-                      valor: '$totalAlunos',
-                      titulo: 'Total de alunos',
-                      cor: const Color(0xFF00A56A),
-                      fundo: const Color(0xFFD5F7E8),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 14),
-
-              Expanded(
-                child: ListView.separated(
-                  itemCount: turmasMock.length,
-
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 14),
-
-                  itemBuilder: (context, index) {
-                    final turma = turmasMock[index];
-
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(20),
-
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                TurmaDetalhesScreen(turma: turma),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _ResumoCard(
+                            valor: '${turmasMock.length}',
+                            titulo: 'Turmas ativas',
+                            cor: const Color(0xFF6545E8),
+                            fundo: const Color(0xFFEFF2FF),
                           ),
-                        );
-                      },
-
-                      child: Container(
-                        padding: const EdgeInsets.all(18),
-
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x10000000),
-                              blurRadius: 8,
-                              offset: Offset(0, 3),
-                            ),
-                          ],
                         ),
 
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 58,
-                              height: 58,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEFF2FF),
-                                borderRadius: BorderRadius.circular(18),
-                              ),
+                        const SizedBox(width: 10),
 
-                              child: Text(
-                                turma.nome,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Color(0xFF6545E8),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                        Expanded(
+                          child: _ResumoCard(
+                            valor: '$totalAlunos',
+                            titulo: 'Total de alunos',
+                            cor: const Color(0xFF00A56A),
+                            fundo: const Color(0xFFD5F7E8),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: turmasMock.length,
+
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 14),
+
+                        itemBuilder: (context, index) {
+                          final turma = turmasMock[index];
+
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(20),
+
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      TurmaDetalhesScreen(turma: turma),
                                 ),
+                              );
+                            },
+
+                            child: Container(
+                              padding: const EdgeInsets.all(18),
+
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x10000000),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 3),
+                                  ),
+                                ],
                               ),
-                            ),
 
-                            const SizedBox(width: 14),
-
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-
+                              child: Row(
                                 children: [
-                                  Text(
-                                    '${turma.nome} — ${turma.ano}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF111827),
+                                  Container(
+                                    width: 58,
+                                    height: 58,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF2FF),
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+
+                                    child: Text(
+                                      turma.nome,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Color(0xFF6545E8),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
                                     ),
                                   ),
 
-                                  const SizedBox(height: 5),
+                                  const SizedBox(width: 14),
 
-                                  Text(
-                                    '${turma.disciplina} · ${turma.periodo}',
-                                    style: const TextStyle(
-                                      color: Color(0xFF64748B),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+
+                                      children: [
+                                        Text(
+                                          '${turma.nome} — ${turma.ano}',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF111827),
+                                          ),
+                                        ),
+
+                                        const SizedBox(height: 5),
+
+                                        Text(
+                                          '${turma.disciplina} · ${turma.periodo}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+
+                                        const SizedBox(height: 5),
+
+                                        Text(
+                                          '${turma.alunos.length} alunos cadastrados',
+                                          style: const TextStyle(
+                                            color: Color(0xFF00A56A),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
 
-                                  const SizedBox(height: 5),
-
-                                  Text(
-                                    '${turma.alunos.length} alunos cadastrados',
-                                    style: const TextStyle(
-                                      color: Color(0xFF00A56A),
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    color: Color(0xFFCBD5E1),
                                   ),
                                 ],
                               ),
                             ),
-
-                            const Icon(
-                              Icons.chevron_right,
-                              color: Color(0xFFCBD5E1),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-              ),
+                    ),
                   ],
                 ),
               ),
@@ -267,12 +262,7 @@ class _ResumoCard extends StatelessWidget {
 
           const SizedBox(height: 6),
 
-          Text(
-            titulo,
-            style: TextStyle(
-              color: cor,
-            ),
-          ),
+          Text(titulo, style: TextStyle(color: cor)),
         ],
       ),
     );

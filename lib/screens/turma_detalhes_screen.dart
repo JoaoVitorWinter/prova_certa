@@ -9,19 +9,14 @@ import 'provas_screen.dart';
 class TurmaDetalhesScreen extends StatelessWidget {
   final Turma turma;
 
-  const TurmaDetalhesScreen({
-    super.key,
-    required this.turma,
-  });
+  const TurmaDetalhesScreen({super.key, required this.turma});
 
   void abrirImportacao(BuildContext context) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return const ImportarAlunosModal();
@@ -37,9 +32,7 @@ class TurmaDetalhesScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(
-          color: Color(0xFF6545E8),
-        ),
+        iconTheme: const IconThemeData(color: Color(0xFF6545E8)),
 
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,9 +76,7 @@ class TurmaDetalhesScreen extends StatelessWidget {
 
               child: const Text(
                 'Importar',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -98,176 +89,159 @@ class TurmaDetalhesScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.all(14),
               children: [
-          Row(
-            children: [
-              Expanded(
-                child: InfoCard(
-                  valor: turma.nome,
-                  titulo: 'Turma',
+                Row(
+                  children: [
+                    Expanded(
+                      child: InfoCard(valor: turma.nome, titulo: 'Turma'),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    Expanded(
+                      child: InfoCard(
+                        valor: '${turma.alunos.length}',
+                        titulo: 'Alunos',
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    Expanded(
+                      child: InfoCard(valor: turma.periodo, titulo: 'Turno'),
+                    ),
+                  ],
                 ),
-              ),
 
-              const SizedBox(width: 8),
+                const SizedBox(height: 12),
 
-              Expanded(
-                child: InfoCard(
-                  valor: '${turma.alunos.length}',
-                  titulo: 'Alunos',
-                ),
-              ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
 
-              const SizedBox(width: 8),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0D000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
 
-              Expanded(
-                child: InfoCard(
-                  valor: turma.periodo,
-                  titulo: 'Turno',
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0D000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 3),
-                ),
-              ],
-            ),
-
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-
-                  child: Row(
+                  child: Column(
                     children: [
-                      const Expanded(
-                        child: Text(
-                          'Lista de alunos',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Lista de alunos',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+
+                            Text(
+                              '${turma.alunos.length} carregados',
+                              style: const TextStyle(color: Color(0xFF94A3B8)),
+                            ),
+                          ],
                         ),
                       ),
 
-                      Text(
-                        '${turma.alunos.length} carregados',
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
-                        ),
+                      const Divider(height: 1),
+
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: turma.alunos.length,
+
+                        separatorBuilder: (context, index) {
+                          return const Divider(height: 1);
+                        },
+
+                        itemBuilder: (context, index) {
+                          return AlunoItem(
+                            aluno: turma.alunos[index],
+                            index: index,
+                          );
+                        },
                       ),
                     ],
                   ),
                 ),
 
-                const Divider(height: 1),
-
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: turma.alunos.length,
-
-                  separatorBuilder: (context, index) {
-                    return const Divider(height: 1);
-                  },
-
-                  itemBuilder: (context, index) {
-                    return AlunoItem(
-                      aluno: turma.alunos[index],
-                      index: index,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          Container(
-            padding: const EdgeInsets.all(18),
-
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0D000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 3),
-                ),
-              ],
-            ),
-
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-
-              children: [
-                const Text(
-                  'Importar alunos',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
                 const SizedBox(height: 12),
 
-                const Text(
-                  'Importe a lista de alunos a partir de uma '
-                  'planilha Excel (.xlsx) ou CSV com as colunas: RA, Nome.',
-                  style: TextStyle(
-                    color: Color(0xFF64748B),
-                    height: 1.5,
+                Container(
+                  padding: const EdgeInsets.all(18),
+
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0D000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+
+                    children: [
+                      const Text(
+                        'Importar alunos',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      const Text(
+                        'Importe a lista de alunos a partir de uma '
+                        'planilha Excel (.xlsx) ou CSV com as colunas: RA, Nome.',
+                        style: TextStyle(color: Color(0xFF64748B), height: 1.5),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      SizedBox(
+                        width: double.infinity,
+
+                        child: OutlinedButton(
+                          onPressed: () => abrirImportacao(context),
+
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF6545E8),
+
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+
+                            side: const BorderSide(color: Color(0xFF8B7CF6)),
+
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+
+                          child: const Text(
+                            'Selecionar arquivo',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-
-                const SizedBox(height: 16),
-
-                SizedBox(
-                  width: double.infinity,
-
-                  child: OutlinedButton(
-                    onPressed: () => abrirImportacao(context),
-
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF6545E8),
-
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                      ),
-
-                      side: const BorderSide(
-                        color: Color(0xFF8B7CF6),
-                      ),
-
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-
-                    child: const Text(
-                      'Selecionar arquivo',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
               ],
             ),
           ),
@@ -290,11 +264,7 @@ class InfoCard extends StatelessWidget {
   final String valor;
   final String titulo;
 
-  const InfoCard({
-    super.key,
-    required this.valor,
-    required this.titulo,
-  });
+  const InfoCard({super.key, required this.valor, required this.titulo});
 
   @override
   Widget build(BuildContext context) {
@@ -322,12 +292,7 @@ class InfoCard extends StatelessWidget {
 
           const SizedBox(height: 4),
 
-          Text(
-            titulo,
-            style: const TextStyle(
-              color: Color(0xFF94A3B8),
-            ),
-          ),
+          Text(titulo, style: const TextStyle(color: Color(0xFF94A3B8))),
         ],
       ),
     );
@@ -338,19 +303,12 @@ class AlunoItem extends StatelessWidget {
   final Aluno aluno;
   final int index;
 
-  const AlunoItem({
-    super.key,
-    required this.aluno,
-    required this.index,
-  });
+  const AlunoItem({super.key, required this.aluno, required this.index});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
 
       child: Row(
         children: [
@@ -410,11 +368,7 @@ class AlunoItem extends StatelessWidget {
               shape: BoxShape.circle,
             ),
 
-            child: const Icon(
-              Icons.check,
-              color: Color(0xFF059669),
-              size: 17,
-            ),
+            child: const Icon(Icons.check, color: Color(0xFF059669), size: 17),
           ),
         ],
       ),
