@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/aluno.dart';
 import '../models/turma.dart';
+import '../widgets/app_bottom_navigation.dart';
 import 'importar_alunos_screen.dart';
+import 'provas_screen.dart';
 
 class TurmaDetalhesScreen extends StatelessWidget {
   final Turma turma;
@@ -90,10 +92,12 @@ class TurmaDetalhesScreen extends StatelessWidget {
         ],
       ),
 
-      body: ListView(
-        padding: const EdgeInsets.all(14),
-
+      body: Column(
         children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(14),
+              children: [
           Row(
             children: [
               Expanded(
@@ -263,6 +267,18 @@ class TurmaDetalhesScreen extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+              ],
+            ),
+          ),
+          AppBottomNavigation(
+            currentItem: AppNavigationItem.turmas,
+            onProvas: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const ProvasScreen()),
+              );
+            },
           ),
         ],
       ),

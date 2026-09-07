@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../mocks/turmas_mock.dart';
+import '../widgets/app_bottom_navigation.dart';
+import 'provas_screen.dart';
 import 'turma_detalhes_screen.dart';
 import 'nova_turma_screen.dart';
 
@@ -62,12 +64,15 @@ class TurmasScreen extends StatelessWidget {
         ],
       ),
 
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-
-          child: Column(
-            children: [
+      body: Column(
+        children: [
+          Expanded(
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  children: [
               Row(
                 children: [
                   Expanded(
@@ -205,9 +210,21 @@ class TurmasScreen extends StatelessWidget {
                   },
                 ),
               ),
-            ],
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+          AppBottomNavigation(
+            currentItem: AppNavigationItem.turmas,
+            onProvas: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const ProvasScreen()),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
