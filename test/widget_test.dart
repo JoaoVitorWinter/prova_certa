@@ -14,9 +14,8 @@ void main() {
     await tester.tap(find.text('Entrar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Turmas'), findsOneWidget);
-    expect(find.text('Banco de Questões'), findsOneWidget);
-    expect(find.text('Selecionar questões'), findsOneWidget);
+    expect(find.text('Criar prova'), findsOneWidget);
+    expect(find.text('Banco de questões'), findsOneWidget);
   });
 
   testWidgets('banco de questões lista e filtra por dificuldade', (tester) async {
@@ -26,7 +25,8 @@ void main() {
     await tester.tap(find.text('Entrar'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Banco de Questões'));
+    await tester.ensureVisible(find.text('Banco de questões'));
+    await tester.tap(find.text('Banco de questões'));
     await tester.pumpAndSettle();
 
     expect(find.text('10 questões encontradas'), findsOneWidget);
