@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'banco_questoes_screen.dart';
 import 'nova_prova_screen.dart';
 import 'provas_screen.dart';
 import 'turmas_screen.dart';
@@ -83,6 +84,14 @@ class HomeScreen extends StatelessWidget {
                             iconBackground: Color(0xFFD9F8E9),
                             title: 'Banco de questões',
                             subtitle: 'Gerenciar questões',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const BancoQuestoesScreen(),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
