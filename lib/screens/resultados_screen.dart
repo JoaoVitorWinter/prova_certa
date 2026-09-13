@@ -380,7 +380,7 @@ class _DistribuicaoChart extends StatelessWidget {
           final faixa = distribuicao[index];
           final altura = faixa.quantidade == 0
               ? 0.0
-              : (faixa.quantidade / escala) * 110;
+              : (faixa.quantidade / escala) * 90;
 
           return Expanded(
             child: Padding(
