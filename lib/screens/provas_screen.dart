@@ -5,6 +5,7 @@ import '../models/prova.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'home_screen.dart';
 import 'nova_prova_screen.dart';
+import 'resultados_screen.dart';
 import 'turmas_screen.dart';
 
 class ProvasScreen extends StatefulWidget {
@@ -62,6 +63,14 @@ class _ProvasScreenState extends State<ProvasScreen> {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (context) => const HomeScreen()),
+                );
+              },
+              onResultados: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ResultadosScreen(),
+                  ),
                 );
               },
               onTurmas: () {
