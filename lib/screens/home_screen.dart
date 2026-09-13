@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'nova_prova_screen.dart';
 import 'provas_screen.dart';
 import 'turmas_screen.dart';
+import 'corrigir_prova_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -37,10 +38,18 @@ class HomeScreen extends StatelessWidget {
                         Expanded(
                           child: _QuickAction(
                             icon: Icons.crop_free_rounded,
-                            iconColor: Color(0xFF4B43F5),
-                            iconBackground: Color(0xFFE9EDFF),
+                            iconColor: const Color(0xFF4B43F5),
+                            iconBackground: const Color(0xFFE9EDFF),
                             title: 'Corrigir prova',
                             subtitle: 'Escaneie a folha',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CorrigirProvaScreen(),
+                                ),
+                              );
+                            },
                           ),
                         ),
                         SizedBox(width: 13),
@@ -515,10 +524,18 @@ class _BottomNavigation extends StatelessWidget {
             );
           },
         ),
-        const _NavigationItem(
+                _NavigationItem(
           icon: Icons.document_scanner_outlined,
           label: 'Corrigir',
           selected: true,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CorrigirProvaScreen(),
+              ),
+            );
+          },
         ),
         const _NavigationItem(
           icon: Icons.bar_chart_outlined,
