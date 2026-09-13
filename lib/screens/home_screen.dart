@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'banco_questoes_screen.dart';
 import 'nova_prova_screen.dart';
 import 'provas_screen.dart';
+import 'resultados_screen.dart';
 import 'turmas_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -74,6 +75,15 @@ class HomeScreen extends StatelessWidget {
                             iconBackground: Color(0xFFE0F7FB),
                             title: 'Ver resultados',
                             subtitle: 'Estatísticas',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ResultadosScreen(),
+                                ),
+                              );
+                            },
                           ),
                         ),
                         SizedBox(width: 13),
@@ -529,9 +539,15 @@ class _BottomNavigation extends StatelessWidget {
           label: 'Corrigir',
           selected: true,
         ),
-        const _NavigationItem(
+        _NavigationItem(
           icon: Icons.bar_chart_outlined,
           label: 'Resultados',
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ResultadosScreen()),
+            );
+          },
         ),
         _NavigationItem(
           icon: Icons.people_outline_rounded,
