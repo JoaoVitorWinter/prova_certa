@@ -6,6 +6,7 @@ class AppBottomNavigation extends StatelessWidget {
   final AppNavigationItem currentItem;
   final VoidCallback? onInicio;
   final VoidCallback? onProvas;
+  final VoidCallback? onResultados;
   final VoidCallback? onTurmas;
 
   const AppBottomNavigation({
@@ -13,6 +14,7 @@ class AppBottomNavigation extends StatelessWidget {
     required this.currentItem,
     this.onInicio,
     this.onProvas,
+    this.onResultados,
     this.onTurmas,
   });
 
@@ -48,6 +50,7 @@ class AppBottomNavigation extends StatelessWidget {
             icon: Icons.bar_chart_outlined,
             label: 'Resultados',
             selected: currentItem == AppNavigationItem.resultados,
+            onTap: onResultados,
           ),
           _NavigationItem(
             icon: Icons.people_outline_rounded,
