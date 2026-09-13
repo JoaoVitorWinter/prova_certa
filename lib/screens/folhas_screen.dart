@@ -7,9 +7,13 @@ import 'leitor_folha_screen.dart';
 class FolhasScreen extends StatefulWidget {
   final Prova prova;
 
+  // Gabarito vindo do QR Code lido no passo anterior.
+  final List<String> gabarito;
+
   const FolhasScreen({
     super.key,
     required this.prova,
+    required this.gabarito,
   });
 
   @override
@@ -63,6 +67,7 @@ class _FolhasScreenState extends State<FolhasScreen> {
         builder: (context) => LeitorFolhaScreen(
           prova: widget.prova,
           numeroFolha: _folhasLidas.length + 1,
+          gabarito: widget.gabarito,
         ),
       ),
     );

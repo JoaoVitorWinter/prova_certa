@@ -11,10 +11,14 @@ class LeitorFolhaScreen extends StatefulWidget {
   final Prova prova;
   final int numeroFolha;
 
+  // Gabarito vindo do QR Code. Define tambem quantas questoes ler.
+  final List<String> gabarito;
+
   const LeitorFolhaScreen({
     super.key,
     required this.prova,
     required this.numeroFolha,
+    required this.gabarito,
   });
 
   @override
@@ -131,22 +135,8 @@ class _LeitorFolhaScreenState extends State<LeitorFolhaScreen> {
         return;
       }
 
-      // ========================================================
-      // GABARITO DE TESTE
-      //
-      // Para sua folha atual:
-      // D D D D D
-      //
-      // Depois vamos substituir pelo gabarito vindo do QR Code.
-      // ========================================================
-
-      final gabarito = <String>[
-        'D',
-        'D',
-        'D',
-        'D',
-        'D',
-      ];
+      // Gabarito real, lido do QR Code no passo 1.
+      final gabarito = widget.gabarito;
 
       int acertos = 0;
 
@@ -243,17 +233,22 @@ class _LeitorFolhaScreenState extends State<LeitorFolhaScreen> {
 
     final resultados = <String>[];
 
-    const quantidadeQuestoesTeste = 5;
+    // A quantidade de questoes vem do gabarito lido no QR Code.
+    final quantidadeQuestoes = widget.gabarito.length;
+
+    if (quantidadeQuestoes == 0) {
+      return [];
+    }
 
     for (
       int questao = 0;
-      questao < quantidadeQuestoesTeste;
+      questao < quantidadeQuestoes;
       questao++
     ) {
       final progressoY =
-          quantidadeQuestoesTeste == 1
+          quantidadeQuestoes == 1
               ? 0.0
-              : questao / (quantidadeQuestoesTeste - 1);
+              : questao / (quantidadeQuestoes - 1);
 
       final centroY =
           inicioY +
