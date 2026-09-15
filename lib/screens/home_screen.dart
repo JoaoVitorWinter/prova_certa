@@ -6,6 +6,7 @@ import 'provas_screen.dart';
 import 'resultados_screen.dart';
 import 'turmas_screen.dart';
 import 'corrigir_prova_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -195,19 +196,30 @@ class _HomeHeader extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              width: 43,
-              height: 43,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Color(0x385F4BEE),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: const Text(
-                'AP',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfileScreen(),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(15),
+              child: Container(
+                width: 43,
+                height: 43,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0x385F4BEE),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Text(
+                  'AP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),

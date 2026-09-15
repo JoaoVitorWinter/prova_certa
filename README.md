@@ -1,17 +1,26 @@
-# prova_certa
+# AvaliaPro — Prova Certa
 
-A new Flutter project.
+O **AvaliaPro** é uma solução desenvolvida para tornar o processo de aplicação e correção de provas mais simples, rápido e organizado.
 
-## Getting Started
+A proposta do projeto é apoiar professores na gestão de turmas, provas e questões, centralizando informações em uma interface intuitiva e de fácil utilização.
 
-This project is a starting point for a Flutter application.
+## Principais funcionalidades
 
-A few resources to get you started if this is your first Flutter project:
+- Gestão de turmas e provas
+- Cadastro e organização de questões
+- Correção de avaliações por QR Code
+- Visualização de resultados
+- Perfil e configurações do usuário
+- Interface simples e responsiva
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Objetivo
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Reduzir tarefas manuais no processo de avaliação, facilitando a rotina do professor e permitindo um acompanhamento mais organizado das atividades acadêmicas.
+
+## Tecnologias
+
+O projeto foi desenvolvido em **Flutter**, permitindo uma experiência consistente em diferentes plataformas.
+
+---
+
+**AvaliaPro — tecnologia para simplificar a avaliação.**
