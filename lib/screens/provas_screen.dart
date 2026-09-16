@@ -7,6 +7,7 @@ import 'home_screen.dart';
 import 'nova_prova_screen.dart';
 import 'resultados_screen.dart';
 import 'turmas_screen.dart';
+import 'corrigir_prova_screen.dart';
 
 class ProvasScreen extends StatefulWidget {
   const ProvasScreen({super.key});
@@ -63,6 +64,14 @@ class _ProvasScreenState extends State<ProvasScreen> {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (context) => const HomeScreen()),
+                );
+              },
+              onCorrigir: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CorrigirProvaScreen(),
+                  ),
                 );
               },
               onResultados: () {

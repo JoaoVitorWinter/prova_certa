@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../models/prova.dart';
 import 'correcao_concluida_screen.dart';
-import 'leitor_folha_screen.dart';
 
 class FolhasScreen extends StatefulWidget {
   final Prova prova;
@@ -29,8 +28,8 @@ class _FolhasScreenState extends State<FolhasScreen> {
 
   bool _abrindoLeitor = false;
 
-  // Para o protótipo continuamos usando 3 folhas.
-  int get _totalFolhas => 3;
+  // Fluxo mockado: uma folha de um aluno fictício basta para validar a etapa de correção.
+  int get _totalFolhas => 1;
 
   bool get _todasLidas {
     return _folhasLidas.length >= _totalFolhas;
@@ -61,35 +60,39 @@ class _FolhasScreenState extends State<FolhasScreen> {
       _abrindoLeitor = true;
     });
 
-    final resultado = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => LeitorFolhaScreen(
-          prova: widget.prova,
-          numeroFolha: _folhasLidas.length + 1,
-          gabarito: widget.gabarito,
-        ),
-      ),
-    );
+    await Future.delayed(const Duration(milliseconds: 700));
 
     if (!mounted) {
       return;
     }
 
-    setState(() {
-      _abrindoLeitor = false;
-    });
+    final gabarito = widget.gabarito;
+    final respostas = <String>[];
 
-    // Usuário voltou sem fazer a leitura.
-    if (resultado == null) {
-      return;
+    for (int i = 0; i < gabarito.length; i++) {
+      final alternativa = ['A', 'B', 'C', 'D', 'E'][i % 5];
+      respostas.add(i % 2 == 0 ? gabarito[i] : alternativa);
     }
 
-    // Recebe EXATAMENTE o que o leitor encontrou.
-    final novoResultado =
-        Map<String, dynamic>.from(resultado);
+    int acertos = 0;
+    for (int i = 0; i < respostas.length; i++) {
+      if (i < gabarito.length && respostas[i] == gabarito[i]) {
+        acertos++;
+      }
+    }
+
+    final novoResultado = <String, dynamic>{
+      'aluno': 'Ana Souza',
+      'matricula': '2026001',
+      'respostas': respostas,
+      'gabarito': gabarito,
+      'acertos': acertos,
+      'total': gabarito.length,
+      'numeroFolha': 1,
+    };
 
     setState(() {
+      _abrindoLeitor = false;
       _folhasLidas.add(novoResultado);
     });
   }

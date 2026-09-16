@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
-enum AppNavigationItem { inicio, provas, corrigir, resultados, turmas }
+enum AppNavigationItem { inicio, provas, corrigir, resultados, turmas, perfil }
 
 class AppBottomNavigation extends StatelessWidget {
   final AppNavigationItem currentItem;
   final VoidCallback? onInicio;
   final VoidCallback? onProvas;
+  final VoidCallback? onCorrigir;
   final VoidCallback? onResultados;
   final VoidCallback? onTurmas;
 
@@ -14,6 +15,7 @@ class AppBottomNavigation extends StatelessWidget {
     required this.currentItem,
     this.onInicio,
     this.onProvas,
+    this.onCorrigir,
     this.onResultados,
     this.onTurmas,
   });
@@ -45,6 +47,7 @@ class AppBottomNavigation extends StatelessWidget {
             icon: Icons.document_scanner_outlined,
             label: 'Corrigir',
             selected: currentItem == AppNavigationItem.corrigir,
+            onTap: onCorrigir,
           ),
           _NavigationItem(
             icon: Icons.bar_chart_outlined,

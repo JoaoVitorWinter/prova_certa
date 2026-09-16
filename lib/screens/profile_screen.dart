@@ -4,6 +4,12 @@ import 'about_app_screen.dart';
 import 'appearance_screen.dart';
 import 'edit_profile_screen.dart';
 import 'notifications_settings_screen.dart';
+import '../widgets/app_bottom_navigation.dart';
+import 'home_screen.dart';
+import 'provas_screen.dart';
+import 'corrigir_prova_screen.dart';
+import 'resultados_screen.dart';
+import 'turmas_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -22,9 +28,7 @@ class ProfileScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 23),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFE4E9F1)),
-                ),
+                border: Border(bottom: BorderSide(color: Color(0xFFE4E9F1))),
               ),
               child: const Text(
                 'Perfil',
@@ -113,6 +117,33 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            ),
+            AppBottomNavigation(
+              currentItem: AppNavigationItem.perfil,
+              onInicio: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+              ),
+              onProvas: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const ProvasScreen()),
+              ),
+              onCorrigir: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CorrigirProvaScreen(),
+                ),
+              ),
+              onResultados: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ResultadosScreen(),
+                ),
+              ),
+              onTurmas: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const TurmasScreen()),
               ),
             ),
           ],
@@ -299,11 +330,7 @@ class _SettingsCard extends StatelessWidget {
           for (var index = 0; index < items.length; index++) ...[
             _SettingsItem(data: items[index]),
             if (index != items.length - 1)
-              const Divider(
-                height: 1,
-                indent: 45,
-                color: Color(0xFFF0F2F6),
-              ),
+              const Divider(height: 1, indent: 45, color: Color(0xFFF0F2F6)),
           ],
         ],
       ),

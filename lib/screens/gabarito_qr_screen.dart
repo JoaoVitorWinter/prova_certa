@@ -27,6 +27,16 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
   // Gabarito extraido do QR Code. Vazio ate a leitura ser valida.
   List<String> _gabarito = [];
 
+  @override
+  void initState() {
+    super.initState();
+
+    // Mock temporario enquanto ainda nao existem QR Codes validos.
+    _gabarito = List<String>.filled(widget.prova.quantidadeQuestoes, 'A');
+    _qrLido = true;
+    _codigoLido = 'MOCK-QR';
+  }
+
   /// Aceita "D,D,D,D,D", "D;D;D;D;D", "DDDDD" ou "D D D D D".
   /// Retorna lista vazia se o conteudo nao for um gabarito valido.
   List<String> _parseGabarito(String bruto) {
@@ -112,14 +122,16 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
   }
 
   void _avancar() {
-    if (!_qrLido || _gabarito.isEmpty) return;
+    final gabarito = _gabarito.isEmpty
+        ? List<String>.filled(widget.prova.quantidadeQuestoes, 'A')
+        : _gabarito;
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => FolhasScreen(
           prova: widget.prova,
-          gabarito: _gabarito,
+          gabarito: gabarito,
         ),
       ),
     );
@@ -355,7 +367,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
       child: SizedBox(
         height: 41,
         child: ElevatedButton(
-          onPressed: _qrLido ? _avancar : null,
+          onPressed: _avancar,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF5647E8),
             disabledBackgroundColor: const Color(0xFFD7D9E2),
@@ -366,7 +378,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
             ),
           ),
           child: Text(
-            _qrLido ? 'QR lido — avançar' : 'Aguardando QR Code...',
+            'QR mockado — avançar',
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,

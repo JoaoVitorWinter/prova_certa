@@ -7,6 +7,7 @@ import 'home_screen.dart';
 import 'importar_alunos_screen.dart';
 import 'provas_screen.dart';
 import 'resultados_screen.dart';
+import 'corrigir_prova_screen.dart';
 
 class TurmaDetalhesScreen extends StatelessWidget {
   final Turma turma;
@@ -259,6 +260,14 @@ class TurmaDetalhesScreen extends StatelessWidget {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const ProvasScreen()),
+              );
+            },
+            onCorrigir: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CorrigirProvaScreen(),
+                ),
               );
             },
             onResultados: () {

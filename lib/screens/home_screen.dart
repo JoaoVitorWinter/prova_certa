@@ -7,6 +7,7 @@ import 'resultados_screen.dart';
 import 'turmas_screen.dart';
 import 'corrigir_prova_screen.dart';
 import 'profile_screen.dart';
+import '../widgets/app_bottom_navigation.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -49,7 +50,8 @@ class HomeScreen extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const CorrigirProvaScreen(),
+                                  builder: (context) =>
+                                      const CorrigirProvaScreen(),
                                 ),
                               );
                             },
@@ -108,7 +110,8 @@ class HomeScreen extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const BancoQuestoesScreen(),
+                                  builder: (context) =>
+                                      const BancoQuestoesScreen(),
                                 ),
                               );
                             },
@@ -148,7 +151,29 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const _BottomNavigation(),
+            AppBottomNavigation(
+              currentItem: AppNavigationItem.inicio,
+              onProvas: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const ProvasScreen()),
+              ),
+              onCorrigir: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CorrigirProvaScreen(),
+                ),
+              ),
+              onResultados: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ResultadosScreen(),
+                ),
+              ),
+              onTurmas: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const TurmasScreen()),
+              ),
+            ),
           ],
         ),
       ),
@@ -526,112 +551,6 @@ class _Status extends StatelessWidget {
         color: Color(0xFF087454),
         fontSize: 10,
         fontWeight: FontWeight.w600,
-      ),
-    ),
-  );
-}
-
-class _BottomNavigation extends StatelessWidget {
-  const _BottomNavigation();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 64,
-    decoration: const BoxDecoration(
-      color: Colors.white,
-      border: Border(top: BorderSide(color: Color(0xFFE4E9F1))),
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        const _NavigationItem(icon: Icons.home_outlined, label: 'Início'),
-        _NavigationItem(
-          icon: Icons.description_outlined,
-          label: 'Provas',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProvasScreen()),
-            );
-          },
-        ),
-                _NavigationItem(
-          icon: Icons.document_scanner_outlined,
-          label: 'Corrigir',
-          selected: true,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const CorrigirProvaScreen(),
-              ),
-            );
-          },
-        ),
-        _NavigationItem(
-          icon: Icons.bar_chart_outlined,
-          label: 'Resultados',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ResultadosScreen()),
-            );
-          },
-        ),
-        _NavigationItem(
-          icon: Icons.people_outline_rounded,
-          label: 'Turmas',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const TurmasScreen()),
-            );
-          },
-        ),
-      ],
-    ),
-  );
-}
-
-class _NavigationItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  const _NavigationItem({
-    required this.icon,
-    required this.label,
-    this.selected = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(12),
-    child: SizedBox(
-      width: 55,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: selected ? const Color(0xFF5146EE) : const Color(0xFF91A1B8),
-            size: 21,
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              color: selected
-                  ? const Color(0xFF5146EE)
-                  : const Color(0xFF91A1B8),
-              fontSize: 9,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
-        ],
       ),
     ),
   );

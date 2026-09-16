@@ -5,6 +5,7 @@ import '../widgets/app_bottom_navigation.dart';
 import 'home_screen.dart';
 import 'provas_screen.dart';
 import 'resultados_screen.dart';
+import 'corrigir_prova_screen.dart';
 import 'turma_detalhes_screen.dart';
 import 'nova_turma_screen.dart';
 
@@ -224,6 +225,14 @@ class TurmasScreen extends StatelessWidget {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const ProvasScreen()),
+              );
+            },
+            onCorrigir: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CorrigirProvaScreen(),
+                ),
               );
             },
             onResultados: () {

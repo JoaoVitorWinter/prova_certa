@@ -6,6 +6,7 @@ import '../widgets/app_bottom_navigation.dart';
 import 'home_screen.dart';
 import 'provas_screen.dart';
 import 'turmas_screen.dart';
+import 'corrigir_prova_screen.dart';
 
 enum _ResultadosTab { visaoGeral, porQuestao, alunos }
 
@@ -38,7 +39,10 @@ class _ResultadosScreenState extends State<ResultadosScreen> {
         elevation: 0,
         title: const Text(
           'Resultados',
-          style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Color(0xFF111827),
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: Column(
@@ -71,9 +75,7 @@ class _ResultadosScreenState extends State<ResultadosScreen> {
                     _ResultadosTab.alunos => _AlunosTab(resultado: resultado),
                   },
                   const SizedBox(height: 14),
-                  _ExportarCard(
-                    onExportar: (nome) => _exportar(context, nome),
-                  ),
+                  _ExportarCard(onExportar: (nome) => _exportar(context, nome)),
                 ],
               ),
             ),
@@ -90,6 +92,14 @@ class _ResultadosScreenState extends State<ResultadosScreen> {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const ProvasScreen()),
+              );
+            },
+            onCorrigir: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CorrigirProvaScreen(),
+                ),
               );
             },
             onTurmas: () {
@@ -320,7 +330,11 @@ class _StatCard extends StatelessWidget {
   final String titulo;
   final Color cor;
 
-  const _StatCard({required this.valor, required this.titulo, required this.cor});
+  const _StatCard({
+    required this.valor,
+    required this.titulo,
+    required this.cor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -342,10 +356,17 @@ class _StatCard extends StatelessWidget {
         children: [
           Text(
             valor,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cor),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: cor,
+            ),
           ),
           const SizedBox(height: 4),
-          Text(titulo, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+          Text(
+            titulo,
+            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+          ),
         ],
       ),
     );
@@ -411,7 +432,10 @@ class _DistribuicaoChart extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     faixa.faixa,
-                    style: const TextStyle(color: Color(0xFF8A99AE), fontSize: 11),
+                    style: const TextStyle(
+                      color: Color(0xFF8A99AE),
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -662,14 +686,23 @@ class _ResultadoAlunoItem extends StatelessWidget {
 
   ({Color background, Color foreground}) get _notaStyle {
     if (resultado.nota >= 7) {
-      return (background: const Color(0xFFD1FAE5), foreground: const Color(0xFF059669));
+      return (
+        background: const Color(0xFFD1FAE5),
+        foreground: const Color(0xFF059669),
+      );
     }
 
     if (resultado.nota >= 5) {
-      return (background: const Color(0xFFFFF0C5), foreground: const Color(0xFFB65D2E));
+      return (
+        background: const Color(0xFFFFF0C5),
+        foreground: const Color(0xFFB65D2E),
+      );
     }
 
-    return (background: const Color(0xFFFEE2E2), foreground: const Color(0xFFDC2626));
+    return (
+      background: const Color(0xFFFEE2E2),
+      foreground: const Color(0xFFDC2626),
+    );
   }
 
   static const _cores = [
@@ -727,7 +760,10 @@ class _ResultadoAlunoItem extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   'RA: ${resultado.aluno.ra}',
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF94A3B8),
+                  ),
                 ),
               ],
             ),
@@ -740,7 +776,10 @@ class _ResultadoAlunoItem extends StatelessWidget {
             ),
             child: Text(
               resultado.nota.toStringAsFixed(1),
-              style: TextStyle(color: notaStyle.foreground, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: notaStyle.foreground,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -856,7 +895,10 @@ class _ExportItem extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitulo,
-                    style: const TextStyle(color: Color(0xFF8A99AE), fontSize: 11),
+                    style: const TextStyle(
+                      color: Color(0xFF8A99AE),
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),

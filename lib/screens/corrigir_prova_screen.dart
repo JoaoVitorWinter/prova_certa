@@ -4,6 +4,10 @@ import '../mocks/provas_mock.dart';
 import '../models/prova.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'gabarito_qr_screen.dart';
+import 'home_screen.dart';
+import 'provas_screen.dart';
+import 'resultados_screen.dart';
+import 'turmas_screen.dart';
 
 class CorrigirProvaScreen extends StatefulWidget {
   const CorrigirProvaScreen({super.key});
@@ -56,7 +60,24 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
             _buildBottomButton(),
             AppBottomNavigation(
               currentItem: AppNavigationItem.corrigir,
-              onInicio: () => Navigator.pop(context),
+              onInicio: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+              ),
+              onProvas: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const ProvasScreen()),
+              ),
+              onResultados: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ResultadosScreen(),
+                ),
+              ),
+              onTurmas: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const TurmasScreen()),
+              ),
             ),
           ],
         ),
@@ -71,11 +92,7 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 17),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFE4E9F1),
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE4E9F1))),
       ),
       alignment: Alignment.centerLeft,
       child: const Text(
@@ -151,9 +168,7 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
       padding: const EdgeInsets.fromLTRB(13, 13, 13, 14),
       decoration: BoxDecoration(
         color: const Color(0xFFEEF2FF),
-        border: Border.all(
-          color: const Color(0xFFC9D4FF),
-        ),
+        border: Border.all(color: const Color(0xFFC9D4FF)),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -223,17 +238,16 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
         height: 40,
         child: ElevatedButton(
           onPressed: habilitado
-            ? () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => GabaritoQrScreen(
-                      prova: _provaSelecionada!,
+              ? () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          GabaritoQrScreen(prova: _provaSelecionada!),
                     ),
-                  ),
-                );
-              }
-            : null,
+                  );
+                }
+              : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF6345E8),
             disabledBackgroundColor: const Color(0xFFD8D9E2),
@@ -245,10 +259,7 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
           ),
           child: const Text(
             'Iniciar correção',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
           ),
         ),
       ),
@@ -274,18 +285,11 @@ class _ProvaOption extends StatelessWidget {
       borderRadius: BorderRadius.circular(11),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 9,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFFEEF0FF)
-              : const Color(0xFFF8F9FB),
+          color: selected ? const Color(0xFFEEF0FF) : const Color(0xFFF8F9FB),
           border: Border.all(
-            color: selected
-                ? const Color(0xFF5146EE)
-                : const Color(0xFFEEF0F4),
+            color: selected ? const Color(0xFF5146EE) : const Color(0xFFEEF0F4),
             width: selected ? 1.2 : 1,
           ),
           borderRadius: BorderRadius.circular(11),
