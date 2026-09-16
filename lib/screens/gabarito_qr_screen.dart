@@ -7,18 +7,14 @@ import '../models/prova.dart';
 class GabaritoQrScreen extends StatefulWidget {
   final Prova prova;
 
-  const GabaritoQrScreen({
-    super.key,
-    required this.prova,
-  });
+  const GabaritoQrScreen({super.key, required this.prova});
 
   @override
   State<GabaritoQrScreen> createState() => _GabaritoQrScreenState();
 }
 
 class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
-  final MobileScannerController _scannerController =
-      MobileScannerController();
+  final MobileScannerController _scannerController = MobileScannerController();
 
   bool _qrLido = false;
   bool _processando = false;
@@ -101,9 +97,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'QR Code invalido: nao contem um gabarito.',
-              ),
+              content: Text('QR Code invalido: nao contem um gabarito.'),
             ),
           );
 
@@ -129,10 +123,8 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => FolhasScreen(
-          prova: widget.prova,
-          gabarito: gabarito,
-        ),
+        builder: (context) =>
+            FolhasScreen(prova: widget.prova, gabarito: gabarito),
       ),
     );
   }
@@ -191,8 +183,9 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
                             ? const Color(0xFF0A9671)
                             : const Color(0xFF8A95A7),
                         fontSize: 11,
-                        fontWeight:
-                            _qrLido ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: _qrLido
+                            ? FontWeight.w600
+                            : FontWeight.normal,
                       ),
                     ),
 
@@ -251,11 +244,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFE4E9F1),
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE4E9F1))),
       ),
       child: Row(
         children: [
@@ -293,18 +282,12 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF171B29),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFF5B4BEA),
-          width: 1.5,
-        ),
+        border: Border.all(color: const Color(0xFF5B4BEA), width: 1.5),
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
-          MobileScanner(
-            controller: _scannerController,
-            onDetect: _processarQr,
-          ),
+          MobileScanner(controller: _scannerController, onDetect: _processarQr),
 
           IgnorePointer(
             child: CustomPaint(
@@ -343,10 +326,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xBFFFFFFF),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFF22BE8B),
-                  width: 3,
-                ),
+                border: Border.all(color: const Color(0xFF22BE8B), width: 3),
               ),
               child: const Icon(
                 Icons.check_circle_rounded,
@@ -379,10 +359,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
           ),
           child: Text(
             'QR mockado — avançar',
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
           ),
         ),
       ),
@@ -404,16 +381,8 @@ class _ScannerOverlayPainter extends CustomPainter {
     const double corner = 22;
 
     // Canto superior esquerdo
-    canvas.drawLine(
-      Offset(left, top + corner),
-      Offset(left, top),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(left, top),
-      Offset(left + corner, top),
-      paint,
-    );
+    canvas.drawLine(Offset(left, top + corner), Offset(left, top), paint);
+    canvas.drawLine(Offset(left, top), Offset(left + corner, top), paint);
 
     // Canto superior direito
     canvas.drawLine(
