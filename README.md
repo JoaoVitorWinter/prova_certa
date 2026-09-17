@@ -187,7 +187,7 @@ flutter analyze
 
 ### Opção 3: executável
 
-O projeto também pode ser executado diretamente pelo executável gerado para a entrega.
+O projeto também pode ser executado diretamente pelo executável gerado para a entrega (.\build\app\outputs\flutter-apk\app-release.apk).
 
 ---
 
