@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "299460863321",
+    "project_id": "provacerta-80ba5",
+    "storage_bucket": "provacerta-80ba5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:299460863321:android:84671c6e8abf4d3df65848",
+        "android_client_info": {
+          "package_name": "com.example.prova_certa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHq3PttLh89J8zHj4M3Rd2R08R8rucyEE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
