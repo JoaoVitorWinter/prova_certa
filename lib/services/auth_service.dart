@@ -32,6 +32,7 @@ class AuthService {
       _auth?.authStateChanges() ?? const Stream.empty();
 
   User? get currentUser => _auth?.currentUser;
+  String? get currentUserId => _auth?.currentUser?.uid;
 
   /// Realiza o login com e-mail e senha no Firebase Authentication
   Future<User?> signInWithEmailAndPassword({
@@ -94,12 +95,38 @@ class AuthService {
         'id': user.uid,
         'nome': nomePadrao,
         'email': user.email ?? '',
-        'instituicao': 'Instituição de Ensino',
+        'instituicao': '',
         'fotoUrl': user.photoURL,
         'criadoEm': FieldValue.serverTimestamp(),
         'atualizadoEm': FieldValue.serverTimestamp(),
       });
     }
+  }
+
+  /// Monitora os dados cadastrais do professor em tempo real
+  Stream<Usuario?> monitorarPerfil(String uid) {
+    if (_firestore == null) return const Stream.empty();
+    return firestore.collection('usuarios').doc(uid).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return Usuario.fromFirestore(doc);
+    });
+  }
+
+  /// Atualiza os dados cadastrais do professor no Firestore e no Auth
+  Future<void> atualizarPerfil({
+    required String uid,
+    required String nome,
+    required String instituicao,
+  }) async {
+    if (_firestore == null) return;
+    await firestore.collection('usuarios').doc(uid).update({
+      'nome': nome.trim(),
+      'instituicao': instituicao.trim(),
+      'atualizadoEm': FieldValue.serverTimestamp(),
+    });
+    try {
+      await currentUser?.updateDisplayName(nome.trim());
+    } catch (_) {}
   }
 
   /// Consulta os dados cadastrais do professor no Firestore

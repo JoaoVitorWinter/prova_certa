@@ -1,5 +1,10 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../models/turma.dart';
+import '../models/usuario.dart';
+import '../services/auth_service.dart';
+import '../services/turma_service.dart';
 import 'banco_questoes_screen.dart';
 import 'nova_prova_screen.dart';
 import 'provas_screen.dart';
@@ -10,7 +15,14 @@ import 'profile_screen.dart';
 import '../widgets/app_bottom_navigation.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final AuthService? authService;
+  final TurmaService? turmaService;
+
+  const HomeScreen({
+    super.key,
+    this.authService,
+    this.turmaService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +32,10 @@ class HomeScreen extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            const _HomeHeader(),
+            _HomeHeader(
+              authService: authService,
+              turmaService: turmaService,
+            ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(23, 19, 23, 18),
@@ -171,7 +186,10 @@ class HomeScreen extends StatelessWidget {
               ),
               onTurmas: () => Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const TurmasScreen()),
+                MaterialPageRoute(
+                  builder: (context) =>
+                      TurmasScreen(turmaService: turmaService),
+                ),
               ),
             ),
           ],
@@ -182,144 +200,299 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader();
+  final AuthService? authService;
+  final TurmaService? turmaService;
+
+  const _HomeHeader({
+    this.authService,
+    this.turmaService,
+  });
+
+  String _obterSaudacao() {
+    final hora = DateTime.now().hour;
+    if (hora >= 5 && hora < 12) return 'Bom dia,';
+    if (hora >= 12 && hora < 18) return 'Boa tarde,';
+    return 'Boa noite,';
+  }
+
+  String _obterIniciais(String nomeCompleto) {
+    final partes = nomeCompleto
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (partes.isEmpty) return 'P';
+    if (partes.length == 1) return partes.first[0].toUpperCase();
+    return '${partes.first[0]}${partes.last[0]}'.toUpperCase();
+  }
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(23, 17, 19, 15),
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(colors: [Color(0xFF5642E8), Color(0xFF7B34ED)]),
-      borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-    ),
-    child: Column(
-      children: [
-        Row(
+  Widget build(BuildContext context) {
+    final aService = authService ?? AuthService();
+    final uid = aService.currentUserId;
+
+    if (uid == null || uid.isEmpty) {
+      return _buildContent(
+        context: context,
+        nome: 'Professor(a)',
+        instituicao: '',
+        iniciais: 'P',
+      );
+    }
+
+    final currentUser =
+        Firebase.apps.isNotEmpty ? aService.currentUser : null;
+
+    return StreamBuilder<Usuario?>(
+      stream: aService.monitorarPerfil(uid),
+      builder: (context, snapshot) {
+        final usuario = snapshot.data;
+        final nome = usuario?.nome.isNotEmpty == true
+            ? usuario!.nome
+            : (currentUser?.displayName?.isNotEmpty == true
+                ? currentUser!.displayName!
+                : (currentUser?.email?.contains('@') == true
+                    ? currentUser!.email!.split('@').first
+                    : 'Professor(a)'));
+
+        final instituicao = usuario?.instituicao.isNotEmpty == true
+            ? usuario!.instituicao
+            : '';
+
+        final iniciais = _obterIniciais(nome);
+
+        return _buildContent(
+          context: context,
+          nome: nome,
+          instituicao: instituicao,
+          iniciais: iniciais,
+        );
+      },
+    );
+  }
+
+  Widget _buildContent({
+    required BuildContext context,
+    required String nome,
+    required String instituicao,
+    required String iniciais,
+  }) =>
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(23, 17, 19, 15),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF5642E8), Color(0xFF7B34ED)],
+          ),
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        ),
+        child: Column(
           children: [
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Boa noite,',
-                    style: TextStyle(color: Color(0xFFDCD7FF), fontSize: 13),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _obterSaudacao(),
+                        style: const TextStyle(
+                          color: Color(0xFFDCD7FF),
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        nome,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (instituicao.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          instituicao,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFFC7C2F8),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Prof. Ana Paula',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                ),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProfileScreen(
+                          turmaService: turmaService,
+                          authService: authService,
+                        ),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(15),
+                  child: Container(
+                    width: 43,
+                    height: 43,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0x385F4BEE),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Text(
+                      iniciais,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'E.E. Prof. Antônio Lemos',
-                    style: TextStyle(color: Color(0xFFC7C2F8), fontSize: 11),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProfileScreen(),
-                  ),
-                );
-              },
-              borderRadius: BorderRadius.circular(15),
-              child: Container(
-                width: 43,
-                height: 43,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0x385F4BEE),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: const Text(
-                  'AP',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+            const SizedBox(height: 19),
+            Row(
+              children: [
+                const Expanded(
+                  child: _Metric(
+                    value: '1',
+                    label: 'Provas (demo)',
+                    color: Color(0xFFFFE15B),
+                    isDemo: true,
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: _Metric(
+                    value: '80',
+                    label: 'Corrigidas (demo)',
+                    color: Color(0xFF5FEAC1),
+                    isDemo: true,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _AlunosTotalMetric(turmaService: turmaService),
+                ),
+              ],
             ),
           ],
         ),
-        const SizedBox(height: 19),
-        const Row(
-          children: [
-            Expanded(
-              child: _Metric(
-                value: '1',
-                label: 'Provas ativas',
-                color: Color(0xFFFFE15B),
-              ),
-            ),
-            SizedBox(width: 8),
-            Expanded(
-              child: _Metric(
-                value: '80',
-                label: 'Corrigidas',
-                color: Color(0xFF5FEAC1),
-              ),
-            ),
-            SizedBox(width: 8),
-            Expanded(
-              child: _Metric(
-                value: '145',
-                label: 'Alunos',
-                color: Color(0xFFB8B9FF),
-              ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
+      );
+}
+
+class _AlunosTotalMetric extends StatelessWidget {
+  final TurmaService? turmaService;
+
+  const _AlunosTotalMetric({this.turmaService});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = turmaService ?? TurmaService();
+    return StreamBuilder<List<Turma>>(
+      stream: service.monitorarTurmas(),
+      builder: (context, snapshot) {
+        String value;
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          value = '...';
+        } else if (snapshot.hasError) {
+          value = '-';
+        } else {
+          final turmas = snapshot.data ?? [];
+          final total = turmas.fold<int>(
+            0,
+            (acc, t) => acc + (t.quantidadeAlunos ?? t.totalAlunos),
+          );
+          value = '$total';
+        }
+
+        return _Metric(
+          value: value,
+          label: 'Alunos',
+          color: const Color(0xFFB8B9FF),
+        );
+      },
+    );
+  }
 }
 
 class _Metric extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
+  final bool isDemo;
 
   const _Metric({
     required this.value,
     required this.label,
     required this.color,
+    this.isDemo = false,
   });
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 69,
-    decoration: BoxDecoration(
-      color: const Color(0x287D6BEB),
-      borderRadius: BorderRadius.circular(15),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
+        height: 69,
+        decoration: BoxDecoration(
+          color: const Color(0x287D6BEB),
+          borderRadius: BorderRadius.circular(15),
         ),
-        const SizedBox(height: 1),
-        Text(
-          label,
-          style: const TextStyle(color: Color(0xFFD5D1FF), fontSize: 11),
+        child: Stack(
+          children: [
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    label,
+                    style:
+                        const TextStyle(color: Color(0xFFD5D1FF), fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            if (isDemo)
+              Positioned(
+                top: 4,
+                right: 6,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'demo',
+                    style: TextStyle(
+                      color: Color(0xFFDCD7FF),
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }
 
 class _QuickAction extends StatelessWidget {
@@ -398,28 +571,48 @@ class _RecentHeader extends StatelessWidget {
   const _RecentHeader();
 
   @override
-  Widget build(BuildContext context) => const Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(
-        'AVALIAÇÕES RECENTES',
-        style: TextStyle(
-          color: Color(0xFF52647C),
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: .4,
-        ),
-      ),
-      Text(
-        'Ver todas',
-        style: TextStyle(
-          color: Color(0xFF5537E8),
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    ],
-  );
+  Widget build(BuildContext context) => Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'AVALIAÇÕES RECENTES',
+                style: TextStyle(
+                  color: Color(0xFF52647C),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: .4,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Demonstrativo',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Text(
+            'Ver todas',
+            style: TextStyle(
+              color: Color(0xFF5537E8),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      );
 }
 
 class _AssessmentCard extends StatelessWidget {

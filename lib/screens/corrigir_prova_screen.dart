@@ -95,13 +95,33 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
         border: Border(bottom: BorderSide(color: Color(0xFFE4E9F1))),
       ),
       alignment: Alignment.centerLeft,
-      child: const Text(
-        'Corrigir Prova',
-        style: TextStyle(
-          color: Color(0xFF101827),
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        children: [
+          const Text(
+            'Corrigir Prova',
+            style: TextStyle(
+              color: Color(0xFF101827),
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF2FF),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'Demonstrativo',
+              style: TextStyle(
+                color: Color(0xFF5146EE),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

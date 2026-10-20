@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
@@ -20,8 +19,9 @@ import 'turmas_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final TurmaService? turmaService;
+  final AuthService? authService;
 
-  const ProfileScreen({super.key, this.turmaService});
+  const ProfileScreen({super.key, this.turmaService, this.authService});
 
   void _confirmarLogout(BuildContext context) {
     showDialog(
@@ -38,7 +38,7 @@ class ProfileScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
-              await AuthService().signOut();
+              await (authService ?? AuthService()).signOut();
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -87,7 +87,7 @@ class ProfileScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(23, 14, 23, 24),
                 child: Column(
                   children: [
-                    const _ProfileCard(),
+                    _ProfileCard(authService: authService),
                     const SizedBox(height: 13),
                     Row(
                       children: [
@@ -115,7 +115,9 @@ class ProfileScreen extends StatelessWidget {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const EditProfileScreen(),
+                              builder: (context) => EditProfileScreen(
+                                authService: authService,
+                              ),
                             ),
                           ),
                         ),
@@ -204,40 +206,45 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard();
+  final AuthService? authService;
+
+  const _ProfileCard({this.authService});
 
   @override
   Widget build(BuildContext context) {
-    final currentUser =
-        Firebase.apps.isNotEmpty ? FirebaseAuth.instance.currentUser : null;
+    final service = authService ?? AuthService();
+    final uid = service.currentUserId;
 
-    if (currentUser == null) {
+    if (uid == null || uid.isEmpty) {
       return const _ProfileCardContent(
-        nome: 'Prof. Ana Paula Santos',
-        email: 'ana.santos@escola.edu.br',
-        instituicao: 'E.E. Prof. Antônio Lemos',
+        nome: 'Professor(a)',
+        email: '',
+        instituicao: 'Instituição não informada',
       );
     }
 
-    return FutureBuilder<Usuario?>(
-      future: AuthService().buscarPerfil(currentUser.uid),
+    final currentUser =
+        Firebase.apps.isNotEmpty ? service.currentUser : null;
+
+    return StreamBuilder<Usuario?>(
+      stream: service.monitorarPerfil(uid),
       builder: (context, snapshot) {
         final usuario = snapshot.data;
         final nome = usuario?.nome.isNotEmpty == true
             ? usuario!.nome
-            : (currentUser.displayName?.isNotEmpty == true
-                ? currentUser.displayName!
-                : (currentUser.email?.contains('@') == true
-                    ? currentUser.email!.split('@').first
-                    : 'Professor'));
+            : (currentUser?.displayName?.isNotEmpty == true
+                ? currentUser!.displayName!
+                : (currentUser?.email?.contains('@') == true
+                    ? currentUser!.email!.split('@').first
+                    : 'Professor(a)'));
 
         final email = usuario?.email.isNotEmpty == true
             ? usuario!.email
-            : (currentUser.email ?? '');
+            : (currentUser?.email ?? '');
 
         final instituicao = usuario?.instituicao.isNotEmpty == true
             ? usuario!.instituicao
-            : 'Instituição de Ensino';
+            : 'Instituição não informada';
 
         return _ProfileCardContent(
           nome: nome,
@@ -261,8 +268,12 @@ class _ProfileCardContent extends StatelessWidget {
   });
 
   String _obterIniciais(String nomeCompleto) {
-    final partes = nomeCompleto.trim().split(RegExp(r'\s+'));
-    if (partes.isEmpty || partes.first.isEmpty) return 'AP';
+    final partes = nomeCompleto
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (partes.isEmpty) return 'P';
     if (partes.length == 1) return partes.first[0].toUpperCase();
     return '${partes.first[0]}${partes.last[0]}'.toUpperCase();
   }

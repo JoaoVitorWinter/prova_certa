@@ -123,7 +123,7 @@ class AboutAppScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'As informações exibidas são demonstrativas e não representam dados reais de usuários.',
+                    'Turmas e alunos utilizam persistência em nuvem. Provas, questões e correções operam em modo demonstrativo.',
                     style: TextStyle(
                       color: Color(0xFF8C99AD),
                       fontSize: 10,
