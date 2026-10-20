@@ -1,0 +1,46 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "provas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "dataAplicacao", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "provas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "turmaId", "order": "ASCENDING" },
+        { "fieldPath": "dataAplicacao", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "questoes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "disciplina", "order": "ASCENDING" },
+        { "fieldPath": "dificuldade", "order": "ASCENDING" },
+        { "fieldPath": "criadoEm", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "questoes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assunto", "order": "ASCENDING" },
+        { "fieldPath": "criadoEm", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "resultados",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "nota", "order": "DESCENDING" },
+        { "fieldPath": "alunoNome", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
