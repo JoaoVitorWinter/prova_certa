@@ -41,6 +41,9 @@ dependencies:
   firebase_core: ^4.15.0
   cloud_firestore: ^6.10.0
   firebase_auth: 6.7.0
+  csv: ^8.0.0
+  archive: ^4.5.2
+  xml: ^7.0.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

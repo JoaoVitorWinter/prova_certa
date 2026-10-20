@@ -1,8 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../models/turma.dart';
 import '../models/usuario.dart';
 import '../services/auth_service.dart';
+import '../services/turma_service.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'about_app_screen.dart';
 import 'appearance_screen.dart';
@@ -16,7 +19,9 @@ import 'resultados_screen.dart';
 import 'turmas_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  final TurmaService? turmaService;
+
+  const ProfileScreen({super.key, this.turmaService});
 
   void _confirmarLogout(BuildContext context) {
     showDialog(
@@ -84,17 +89,17 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     const _ProfileCard(),
                     const SizedBox(height: 13),
-                    const Row(
+                    Row(
                       children: [
                         Expanded(
-                          child: _StatCard(value: '4', label: 'Turmas'),
+                          child: _TurmasStatCard(turmaService: turmaService),
                         ),
-                        SizedBox(width: 7),
-                        Expanded(
+                        const SizedBox(width: 7),
+                        const Expanded(
                           child: _StatCard(value: '4', label: 'Provas'),
                         ),
-                        SizedBox(width: 7),
-                        Expanded(
+                        const SizedBox(width: 7),
+                        const Expanded(
                           child: _StatCard(value: '10', label: 'Questões'),
                         ),
                       ],
@@ -203,7 +208,8 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUser =
+        Firebase.apps.isNotEmpty ? FirebaseAuth.instance.currentUser : null;
 
     if (currentUser == null) {
       return const _ProfileCardContent(
@@ -399,6 +405,34 @@ class _StatCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TurmasStatCard extends StatelessWidget {
+  final TurmaService? turmaService;
+
+  const _TurmasStatCard({this.turmaService});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = turmaService ?? TurmaService();
+
+    return StreamBuilder<List<Turma>>(
+      stream: service.monitorarTurmas(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const _StatCard(value: '...', label: 'Turmas');
+        }
+
+        if (snapshot.hasError) {
+          return const _StatCard(value: '-', label: 'Turmas');
+        }
+
+        final turmas = snapshot.data ?? [];
+        return _StatCard(value: '${turmas.length}', label: 'Turmas');
+      },
     );
   }
 }

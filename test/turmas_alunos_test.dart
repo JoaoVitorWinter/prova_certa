@@ -351,6 +351,54 @@ class FakeTurmaService extends TurmaService {
       _notificarTurmas();
     }
   }
+
+  @override
+  Future<int> importarAlunosLote({
+    required String turmaId,
+    required List<Aluno> alunos,
+    String? userId,
+  }) async {
+    if (alunos.isEmpty) return 0;
+    final uid = userId ?? _simulatedUserId;
+    final turma = _turmasDb[uid]?[turmaId];
+    if (turma == null) throw Exception('Turma não encontrada.');
+
+    final alunosTurma =
+        _alunosDb.putIfAbsent(uid, () => {}).putIfAbsent(turmaId, () => {});
+
+    final rasExistentes = alunosTurma.values.map((a) => a.ra).toSet();
+
+    // Filtra exclusivamente os novos que não constam na turma
+    final novos = alunos
+        .where((a) => !rasExistentes.contains(a.ra.trim()))
+        .toList();
+
+    if (novos.isEmpty) return 0;
+
+    for (final aluno in novos) {
+      final safeRa =
+          aluno.ra.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+      final docId = 'aluno_$safeRa';
+      alunosTurma[docId] = Aluno(
+        id: docId,
+        nome: aluno.nome.trim(),
+        ra: aluno.ra.trim(),
+        criadoEm: DateTime.now(),
+        atualizadoEm: DateTime.now(),
+      );
+    }
+
+    final novaQtd = (turma.quantidadeAlunos ?? 0) + novos.length;
+    _turmasDb[uid]![turmaId] = turma.copyWith(
+      quantidadeAlunos: novaQtd,
+      atualizadoEm: DateTime.now(),
+    );
+
+    _notificarAlunos(turmaId);
+    _notificarTurmas();
+
+    return novos.length;
+  }
 }
 
 void main() {

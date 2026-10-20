@@ -43,7 +43,10 @@ class _TurmaDetalhesScreenState extends State<TurmaDetalhesScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return const ImportarAlunosModal();
+        return ImportarAlunosModal(
+          turmaId: widget.turma.id,
+          turmaService: _turmaService,
+        );
       },
     );
   }

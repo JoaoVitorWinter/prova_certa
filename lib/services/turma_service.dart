@@ -374,4 +374,79 @@ class TurmaService {
       }
     });
   }
+
+  /// Importa alunos em lote para a turma com identificador determinístico,
+  /// respeitando limites de lotes do Firestore e atualizando quantidadeAlunos
+  /// exclusivamente pelos registros de fato inseridos.
+  Future<int> importarAlunosLote({
+    required String turmaId,
+    required List<Aluno> alunos,
+    String? userId,
+  }) async {
+    if (alunos.isEmpty) return 0;
+
+    final uid = _resolveUserId(userId);
+    final turmaRef = _turmasRef(uid).doc(turmaId);
+
+    // Consulta os alunos já existentes na turma para evitar duplicidades
+    final snapExistentes = await _alunosRef(uid, turmaId).get();
+    final rasExistentes = snapExistentes.docs
+        .map((d) => d.data()['ra']?.toString().trim() ?? '')
+        .where((ra) => ra.isNotEmpty)
+        .toSet();
+
+    // Filtra exclusivamente os novos que não constam na turma
+    final novos = alunos
+        .where((a) => !rasExistentes.contains(a.ra.trim()))
+        .toList();
+
+    if (novos.isEmpty) return 0;
+
+    // Processa em lotes (batch) com limite seguro de 400 operações por lote
+    const tamanhoLote = 400;
+    int totalInseridos = 0;
+
+    for (var i = 0; i < novos.length; i += tamanhoLote) {
+      final fim =
+          (i + tamanhoLote < novos.length) ? i + tamanhoLote : novos.length;
+      final subLista = novos.sublist(i, fim);
+
+      final batch = firestore.batch();
+      for (final aluno in subLista) {
+        // Identificador determinístico baseado no RA do aluno
+        final safeRa =
+            aluno.ra.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+        final docId = 'aluno_$safeRa';
+        final alunoRef = _alunosRef(uid, turmaId).doc(docId);
+
+        batch.set(alunoRef, {
+          'id': docId,
+          'nome': aluno.nome.trim(),
+          'ra': aluno.ra.trim(),
+          'turmaId': turmaId,
+          'criadoEm': FieldValue.serverTimestamp(),
+          'atualizadoEm': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
+      totalInseridos += subLista.length;
+    }
+
+    // Atualiza o contador de alunos de forma consistente via transação
+    await firestore.runTransaction((transaction) async {
+      final turmaDoc = await transaction.get(turmaRef);
+      if (turmaDoc.exists) {
+        final qtdAtual =
+            (turmaDoc.data()?['quantidadeAlunos'] as num?)?.toInt() ?? 0;
+        final novaQtd = qtdAtual + totalInseridos;
+        transaction.update(turmaRef, {
+          'quantidadeAlunos': novaQtd,
+          'atualizadoEm': FieldValue.serverTimestamp(),
+        });
+      }
+    });
+
+    return totalInseridos;
+  }
 }
