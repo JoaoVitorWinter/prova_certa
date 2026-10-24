@@ -63,6 +63,59 @@ class AuthService {
     }
   }
 
+  /// Realiza o cadastro de um novo professor no Auth e cria seu perfil em /usuarios/{uid}
+  Future<User?> cadastrarProfessor({
+    required String nome,
+    required String email,
+    required String instituicao,
+    required String password,
+  }) async {
+    User? user;
+    try {
+      final credential = await auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      user = credential.user;
+      if (user == null) {
+        throw 'Não foi possível criar a conta de usuário.';
+      }
+    } on FirebaseAuthException catch (e) {
+      throw _converterErroAuth(e);
+    }
+
+    try {
+      final docRef = firestore.collection('usuarios').doc(user.uid);
+      final docSnap = await docRef.get();
+      if (!docSnap.exists) {
+        final novoUsuario = Usuario(
+          id: user.uid,
+          nome: nome.trim(),
+          email: email.trim(),
+          instituicao: instituicao.trim(),
+          fotoUrl: user.photoURL,
+        );
+        await docRef.set(novoUsuario.toFirestore());
+      }
+      final confirmSnap = await docRef.get();
+      if (!confirmSnap.exists || confirmSnap.data() == null) {
+        throw StateError('Perfil não encontrado após gravação.');
+      }
+      try {
+        await user.updateDisplayName(nome.trim());
+      } catch (_) {}
+      return user;
+    } catch (_) {
+      try {
+        await user.delete();
+      } catch (_) {}
+      try {
+        await _auth?.signOut();
+      } catch (_) {}
+      throw 'Não foi possível salvar os dados do perfil no Firestore. Tente novamente.';
+    }
+  }
+
   /// Envia e-mail de redefinição de senha oficial pelo Firebase Auth
   Future<void> sendPasswordResetEmail({required String email}) async {
     try {
@@ -160,6 +213,10 @@ class AuthService {
         return 'Muitas tentativas consecutivas. Tente novamente mais tarde.';
       case 'network-request-failed':
         return 'Falha na conexão com a internet. Verifique sua rede.';
+      case 'email-already-in-use':
+        return 'Este e-mail já está cadastrado em outra conta.';
+      case 'weak-password':
+        return 'A senha escolhida é muito fraca. Utilize pelo menos 6 caracteres.';
       case 'operation-not-allowed':
         return 'O método de login por e-mail e senha não está habilitado no Firebase.';
       default:

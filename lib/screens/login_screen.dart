@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import 'home_screen.dart';
+import 'register_screen.dart';
 import 'reset_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -330,6 +331,30 @@ class _LoginScreenState extends State<LoginScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => RegisterScreen(
+                                    authService: _authService,
+                                  ),
+                                ),
+                              );
+                            },
+                      child: const Text(
+                        'Cadastre-se',
+                        style: TextStyle(
+                          color: Color(0xFF6438EF),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
 

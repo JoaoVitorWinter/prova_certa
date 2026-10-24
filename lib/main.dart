@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
+import 'models/usuario.dart';
 import 'screens/login_screen.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,11 +17,13 @@ void main() async {
 class ProvaCertaApp extends StatelessWidget {
   final Widget? homeOverride;
   final Stream<User?>? authStateStream;
+  final AuthService? authService;
 
   const ProvaCertaApp({
     super.key,
     this.homeOverride,
     this.authStateStream,
+    this.authService,
   });
 
   @override
@@ -48,7 +52,30 @@ class ProvaCertaApp extends StatelessWidget {
                     }
 
                     if (snapshot.hasData && snapshot.data != null) {
-                      return const HomeScreen();
+                      final service = authService ?? AuthService();
+                      return StreamBuilder<Usuario?>(
+                        stream: service.monitorarPerfil(snapshot.data!.uid),
+                        builder: (context, perfilSnapshot) {
+                          if (perfilSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Scaffold(
+                              backgroundColor: Color(0xFFF4F6FA),
+                              body: Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF713CEB),
+                                ),
+                              ),
+                            );
+                          }
+                          final perfil = perfilSnapshot.data;
+                          if (perfil != null &&
+                              perfil.nome.trim().isNotEmpty &&
+                              perfil.email.trim().isNotEmpty) {
+                            return HomeScreen(authService: authService);
+                          }
+                          return LoginScreen(authService: authService);
+                        },
+                      );
                     }
 
                     return const LoginScreen();
