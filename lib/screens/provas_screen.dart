@@ -112,14 +112,35 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Expanded(
-            child: Text(
-              'Minhas Provas',
-              style: TextStyle(
-                color: Color(0xFF101827),
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
+          Expanded(
+            child: Row(
+              children: [
+                const Text(
+                  'Minhas Provas',
+                  style: TextStyle(
+                    color: Color(0xFF101827),
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF2FF),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Demonstrativo',
+                    style: TextStyle(
+                      color: Color(0xFF5146EE),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           TextButton(

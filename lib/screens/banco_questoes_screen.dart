@@ -185,12 +185,27 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
           color: Color(0xFF6545E8),
         ),
 
-        title: const Text(
-          'Banco de Questões',
-          style: TextStyle(
-            color: Color(0xFF111827),
-            fontWeight: FontWeight.bold,
-          ),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Banco de Questões',
+              style: TextStyle(
+                color: Color(0xFF111827),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            Text(
+              'Modo demonstrativo',
+              style: TextStyle(
+                color: Color(0xFF6545E8),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
 
         actions: [

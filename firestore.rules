@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Funções utilitárias de autenticação e propriedade
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Bloqueia qualquer rota não mapeada explicitamente
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Raiz multi-tenant isolada por professor autenticado
+    match /usuarios/{userId} {
+      // Leitura e exclusão permitidas apenas para o próprio professor
+      allow read, delete: if isOwner(userId);
+
+      // Criação e atualização de dados do perfil do professor
+      allow create, update: if isOwner(userId)
+        && !('senha' in request.resource.data)
+        && !('password' in request.resource.data)
+        && !('hash' in request.resource.data)
+        && request.resource.data.keys().hasOnly(['id', 'nome', 'email', 'instituicao', 'fotoUrl', 'criadoEm', 'atualizadoEm'])
+        && request.resource.data.nome is string && request.resource.data.nome.size() > 0
+        && request.resource.data.email is string && request.resource.data.email.size() > 0
+        && (!('instituicao' in request.resource.data) || request.resource.data.instituicao is string)
+        && (!('fotoUrl' in request.resource.data) || request.resource.data.fotoUrl == null || request.resource.data.fotoUrl is string);
+
+      // --------------------------------------------------------
+      // SUBCOLEÇÃO: TURMAS
+      // --------------------------------------------------------
+      match /turmas/{turmaId} {
+        allow read, delete: if isOwner(userId);
+
+        allow create, update: if isOwner(userId)
+          // O array completo de alunos NÃO deve ser persistido no documento da turma
+          && !('alunos' in request.resource.data)
+          && request.resource.data.keys().hasOnly(['id', 'nome', 'ano', 'disciplina', 'periodo', 'quantidadeAlunos', 'criadoEm', 'atualizadoEm'])
+          && request.resource.data.nome is string && request.resource.data.nome.size() > 0
+          && request.resource.data.ano is string && request.resource.data.ano.size() > 0
+          && request.resource.data.disciplina is string && request.resource.data.disciplina.size() > 0
+          && request.resource.data.periodo is string && request.resource.data.periodo.size() > 0
+          && (!('quantidadeAlunos' in request.resource.data) || request.resource.data.quantidadeAlunos is number);
+
+        // ------------------------------------------------------
+        // SUBCOLEÇÃO: ALUNOS DA TURMA
+        // ------------------------------------------------------
+        match /alunos/{alunoId} {
+          allow read, delete: if isOwner(userId);
+
+          allow create, update: if isOwner(userId)
+            && request.resource.data.keys().hasOnly(['id', 'nome', 'ra', 'turmaId', 'criadoEm', 'atualizadoEm'])
+            && request.resource.data.nome is string && request.resource.data.nome.size() > 0
+            && request.resource.data.ra is string && request.resource.data.ra.size() > 0;
+        }
+      }
+
+      // --------------------------------------------------------
+      // SUBCOLEÇÃO: BANCO DE QUESTÕES DO PROFESSOR
+      // --------------------------------------------------------
+      match /questoes/{questaoId} {
+        allow read, delete: if isOwner(userId);
+
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['id', 'enunciado', 'alternativas', 'correta', 'assunto', 'dificuldade', 'disciplina', 'criadoEm', 'atualizadoEm'])
+          && request.resource.data.enunciado is string && request.resource.data.enunciado.size() > 0
+          && request.resource.data.correta is string && request.resource.data.correta.size() > 0
+          && request.resource.data.assunto is string && request.resource.data.assunto.size() > 0
+          && request.resource.data.dificuldade is string && request.resource.data.dificuldade.size() > 0
+          && request.resource.data.disciplina is string && request.resource.data.disciplina.size() > 0
+          && request.resource.data.alternativas is list
+          && request.resource.data.alternativas.size() >= 2
+          && request.resource.data.alternativas.size() <= 5;
+      }
+
+      // --------------------------------------------------------
+      // SUBCOLEÇÃO: PROVAS DO PROFESSOR
+      // --------------------------------------------------------
+      match /provas/{provaId} {
+        allow read, delete: if isOwner(userId);
+
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'id', 'nome', 'turmaId', 'turmaNome', 'turmaAno', 'turmaDisciplina', 'turmaPeriodo',
+            'dataAplicacao', 'quantidadeQuestoes', 'status', 'embaralharQuestoes',
+            'embaralharAlternativas', 'numeroVersoes', 'questoesIds', 'questoesSnapshot',
+            'gabaritoOficial', 'resumoResultado', 'criadoEm', 'atualizadoEm'
+          ])
+          && request.resource.data.nome is string && request.resource.data.nome.size() > 0
+          && request.resource.data.turmaId is string && request.resource.data.turmaId.size() > 0
+          && request.resource.data.status in ['rascunho', 'ativa', 'encerrada']
+          && request.resource.data.quantidadeQuestoes is number
+          && (!('embaralharQuestoes' in request.resource.data) || request.resource.data.embaralharQuestoes is bool)
+          && (!('embaralharAlternativas' in request.resource.data) || request.resource.data.embaralharAlternativas is bool)
+          && (!('numeroVersoes' in request.resource.data) || request.resource.data.numeroVersoes is number)
+          && (!('questoesIds' in request.resource.data) || request.resource.data.questoesIds is list)
+          && (!('questoesSnapshot' in request.resource.data) || request.resource.data.questoesSnapshot is list)
+          && (!('gabaritoOficial' in request.resource.data) || request.resource.data.gabaritoOficial is list);
+
+        // ------------------------------------------------------
+        // SUBCOLEÇÃO: RESULTADOS INDIVIDUAIS POR ALUNO
+        // ------------------------------------------------------
+        match /resultados/{alunoId} {
+          allow read, delete: if isOwner(userId);
+
+          allow create, update: if isOwner(userId)
+            && request.resource.data.keys().hasOnly([
+              'id', 'alunoId', 'alunoNome', 'alunoRa', 'nota', 'acertos',
+              'totalQuestoes', 'alternativasMarcadas', 'provaId', 'turmaId',
+              'corrigidoEm', 'atualizadoEm'
+            ])
+            && request.resource.data.alunoId is string && request.resource.data.alunoId.size() > 0
+            && request.resource.data.alunoNome is string && request.resource.data.alunoNome.size() > 0
+            && request.resource.data.alunoRa is string && request.resource.data.alunoRa.size() > 0
+            && request.resource.data.nota is number
+            && request.resource.data.acertos is number
+            && request.resource.data.totalQuestoes is number
+            && request.resource.data.alternativasMarcadas is list;
+        }
+      }
+    }
+  }
+}

@@ -1,18 +1,61 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../models/turma.dart';
+import '../models/usuario.dart';
+import '../services/auth_service.dart';
+import '../services/turma_service.dart';
+import '../widgets/app_bottom_navigation.dart';
 import 'about_app_screen.dart';
 import 'appearance_screen.dart';
-import 'edit_profile_screen.dart';
-import 'notifications_settings_screen.dart';
-import '../widgets/app_bottom_navigation.dart';
-import 'home_screen.dart';
-import 'provas_screen.dart';
 import 'corrigir_prova_screen.dart';
+import 'edit_profile_screen.dart';
+import 'home_screen.dart';
+import 'login_screen.dart';
+import 'notifications_settings_screen.dart';
+import 'provas_screen.dart';
 import 'resultados_screen.dart';
 import 'turmas_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  final TurmaService? turmaService;
+  final AuthService? authService;
+
+  const ProfileScreen({super.key, this.turmaService, this.authService});
+
+  void _confirmarLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sair da conta'),
+        content:
+            const Text('Deseja realmente encerrar sua sessão no AvaliaPro?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await (authService ?? AuthService()).signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sair'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,19 +87,19 @@ class ProfileScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(23, 14, 23, 24),
                 child: Column(
                   children: [
-                    const _ProfileCard(),
+                    _ProfileCard(authService: authService),
                     const SizedBox(height: 13),
-                    const Row(
+                    Row(
                       children: [
                         Expanded(
-                          child: _StatCard(value: '4', label: 'Turmas'),
+                          child: _TurmasStatCard(turmaService: turmaService),
                         ),
-                        SizedBox(width: 7),
-                        Expanded(
+                        const SizedBox(width: 7),
+                        const Expanded(
                           child: _StatCard(value: '4', label: 'Provas'),
                         ),
-                        SizedBox(width: 7),
-                        Expanded(
+                        const SizedBox(width: 7),
+                        const Expanded(
                           child: _StatCard(value: '10', label: 'Questões'),
                         ),
                       ],
@@ -72,7 +115,9 @@ class ProfileScreen extends StatelessWidget {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const EditProfileScreen(),
+                              builder: (context) => EditProfileScreen(
+                                authService: authService,
+                              ),
                             ),
                           ),
                         ),
@@ -112,6 +157,13 @@ class ProfileScreen extends StatelessWidget {
                               builder: (context) => const AboutAppScreen(),
                             ),
                           ),
+                        ),
+                        _SettingsItemData(
+                          icon: Icons.logout_rounded,
+                          iconColor: const Color(0xFFE53935),
+                          title: 'Sair da conta',
+                          subtitle: 'Encerrar sessão no dispositivo',
+                          onTap: () => _confirmarLogout(context),
                         ),
                       ],
                     ),
@@ -154,7 +206,77 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard();
+  final AuthService? authService;
+
+  const _ProfileCard({this.authService});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = authService ?? AuthService();
+    final uid = service.currentUserId;
+
+    if (uid == null || uid.isEmpty) {
+      return const _ProfileCardContent(
+        nome: 'Professor(a)',
+        email: '',
+        instituicao: 'Instituição não informada',
+      );
+    }
+
+    final currentUser =
+        Firebase.apps.isNotEmpty ? service.currentUser : null;
+
+    return StreamBuilder<Usuario?>(
+      stream: service.monitorarPerfil(uid),
+      builder: (context, snapshot) {
+        final usuario = snapshot.data;
+        final nome = usuario?.nome.isNotEmpty == true
+            ? usuario!.nome
+            : (currentUser?.displayName?.isNotEmpty == true
+                ? currentUser!.displayName!
+                : (currentUser?.email?.contains('@') == true
+                    ? currentUser!.email!.split('@').first
+                    : 'Professor(a)'));
+
+        final email = usuario?.email.isNotEmpty == true
+            ? usuario!.email
+            : (currentUser?.email ?? '');
+
+        final instituicao = usuario?.instituicao.isNotEmpty == true
+            ? usuario!.instituicao
+            : 'Instituição não informada';
+
+        return _ProfileCardContent(
+          nome: nome,
+          email: email,
+          instituicao: instituicao,
+        );
+      },
+    );
+  }
+}
+
+class _ProfileCardContent extends StatelessWidget {
+  final String nome;
+  final String email;
+  final String instituicao;
+
+  const _ProfileCardContent({
+    required this.nome,
+    required this.email,
+    required this.instituicao,
+  });
+
+  String _obterIniciais(String nomeCompleto) {
+    final partes = nomeCompleto
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (partes.isEmpty) return 'P';
+    if (partes.length == 1) return partes.first[0].toUpperCase();
+    return '${partes.first[0]}${partes.last[0]}'.toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -172,25 +294,27 @@ class _ProfileCard extends StatelessWidget {
           ),
         ],
       ),
-      child: const Column(
+      child: Column(
         children: [
-          _Avatar(),
-          SizedBox(height: 10),
+          _Avatar(iniciais: _obterIniciais(nome)),
+          const SizedBox(height: 10),
           Text(
-            'Prof. Ana Paula Santos',
-            style: TextStyle(
+            nome,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
               color: Color(0xFF101827),
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
-            'ana.santos@escola.edu.br',
-            style: TextStyle(color: Color(0xFF7988A0), fontSize: 11),
+            email,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFF7988A0), fontSize: 11),
           ),
-          SizedBox(height: 7),
-          _SchoolBadge(),
+          const SizedBox(height: 7),
+          _SchoolBadge(nomeInstituicao: instituicao),
         ],
       ),
     );
@@ -198,7 +322,9 @@ class _ProfileCard extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar();
+  final String iniciais;
+
+  const _Avatar({required this.iniciais});
 
   @override
   Widget build(BuildContext context) {
@@ -214,9 +340,9 @@ class _Avatar extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(19),
       ),
-      child: const Text(
-        'AP',
-        style: TextStyle(
+      child: Text(
+        iniciais,
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 24,
           fontWeight: FontWeight.w700,
@@ -227,7 +353,9 @@ class _Avatar extends StatelessWidget {
 }
 
 class _SchoolBadge extends StatelessWidget {
-  const _SchoolBadge();
+  final String nomeInstituicao;
+
+  const _SchoolBadge({required this.nomeInstituicao});
 
   @override
   Widget build(BuildContext context) {
@@ -237,9 +365,9 @@ class _SchoolBadge extends StatelessWidget {
         color: const Color(0xFFF0EDFF),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Text(
-        'E.E. Prof. Antônio Lemos',
-        style: TextStyle(
+      child: Text(
+        nomeInstituicao,
+        style: const TextStyle(
           color: Color(0xFF6849E8),
           fontSize: 10,
           fontWeight: FontWeight.w500,
@@ -288,6 +416,34 @@ class _StatCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TurmasStatCard extends StatelessWidget {
+  final TurmaService? turmaService;
+
+  const _TurmasStatCard({this.turmaService});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = turmaService ?? TurmaService();
+
+    return StreamBuilder<List<Turma>>(
+      stream: service.monitorarTurmas(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const _StatCard(value: '...', label: 'Turmas');
+        }
+
+        if (snapshot.hasError) {
+          return const _StatCard(value: '-', label: 'Turmas');
+        }
+
+        final turmas = snapshot.data ?? [];
+        return _StatCard(value: '${turmas.length}', label: 'Turmas');
+      },
     );
   }
 }
@@ -348,14 +504,19 @@ class _SettingsItem extends StatelessWidget {
     return InkWell(
       onTap: data.onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            SizedBox(
-              width: 26,
-              child: Icon(data.icon, color: data.iconColor, size: 18),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: data.iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(data.icon, color: data.iconColor, size: 17),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,24 +525,22 @@ class _SettingsItem extends StatelessWidget {
                     data.title,
                     style: const TextStyle(
                       color: Color(0xFF111827),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     data.subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFFA1ACC0),
-                      fontSize: 9,
-                    ),
+                    style:
+                        const TextStyle(color: Color(0xFF8A97AA), fontSize: 10),
                   ),
                 ],
               ),
             ),
             const Icon(
               Icons.chevron_right_rounded,
-              color: Color(0xFFD2D9E4),
+              color: Color(0xFFB0BAC8),
               size: 20,
             ),
           ],
@@ -398,7 +557,7 @@ class _SettingsItemData {
   final String subtitle;
   final VoidCallback onTap;
 
-  _SettingsItemData({
+  const _SettingsItemData({
     required this.icon,
     required this.iconColor,
     required this.title,

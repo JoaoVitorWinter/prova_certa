@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
+
 class ResetPasswordScreen extends StatefulWidget {
-  const ResetPasswordScreen({super.key});
+  final AuthService? authService;
+
+  const ResetPasswordScreen({super.key, this.authService});
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
@@ -9,35 +13,77 @@ class ResetPasswordScreen extends StatefulWidget {
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _emailController = TextEditingController();
-  final _novaSenhaController = TextEditingController();
-  final _confirmarSenhaController = TextEditingController();
+  late final AuthService _authService;
+  bool _loading = false;
 
-  bool _ocultarNovaSenha = true;
-  bool _ocultarConfirmacao = true;
+  @override
+  void initState() {
+    super.initState();
+    _authService = widget.authService ?? AuthService();
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
-    _novaSenhaController.dispose();
-    _confirmarSenhaController.dispose();
     super.dispose();
   }
 
-  void _redefinirSenha() {
+  bool _validarEmail() {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      _mostrarMensagem('Informe seu e-mail institucional.', isError: true);
+      return false;
+    }
+
+    final emailValido = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email);
+    if (!emailValido) {
+      _mostrarMensagem('Informe um formato de e-mail válido.', isError: true);
+      return false;
+    }
+
+    return true;
+  }
+
+  void _mostrarMensagem(String mensagem, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor:
+            isError ? const Color(0xFFD32F2F) : const Color(0xFF2E7D32),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _enviarEmailRecuperacao() async {
     FocusScope.of(context).unfocus();
 
-    if (_novaSenhaController.text != _confirmarSenhaController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('As senhas informadas não coincidem.')),
-      );
+    if (_loading || !_validarEmail()) {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Senha redefinida com sucesso no protótipo.'),
-      ),
-    );
+    setState(() => _loading = true);
+
+    try {
+      final email = _emailController.text.trim();
+      await _authService.sendPasswordResetEmail(email: email);
+
+      if (mounted) {
+        _mostrarMensagem(
+          'E-mail de recuperação enviado para $email! Verifique sua caixa de entrada.',
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        _mostrarMensagem(e.toString(), isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
   }
 
   @override
@@ -104,7 +150,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   ),
                   const SizedBox(height: 22),
                   const Text(
-                    'Crie uma nova senha',
+                    'Recuperar acesso',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xFF111827),
@@ -114,7 +160,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Informe seu e-mail institucional e escolha uma nova senha para acessar o AvaliaPro.',
+                    'Informe seu e-mail institucional cadastrado. Enviaremos um link seguro para você redefinir sua senha.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xFF64748B),
@@ -128,90 +174,49 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _enviarEmailRecuperacao(),
+                    enabled: !_loading,
                     decoration: _inputDecoration(
                       hintText: 'seuemail@email.com.br',
-                    ),
-                  ),
-                  const SizedBox(height: 17),
-                  const _FieldLabel('NOVA SENHA'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _novaSenhaController,
-                    obscureText: _ocultarNovaSenha,
-                    textInputAction: TextInputAction.next,
-                    decoration: _inputDecoration(
-                      hintText: '••••••••',
-                      suffixIcon: IconButton(
-                        onPressed: () {
-                          setState(() => _ocultarNovaSenha = !_ocultarNovaSenha);
-                        },
-                        icon: Icon(
-                          _ocultarNovaSenha
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: const Color(0xFF91A1B8),
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  const Text(
-                    'Use pelo menos 8 caracteres.',
-                    style: TextStyle(color: Color(0xFF9AA6B8), fontSize: 10),
-                  ),
-                  const SizedBox(height: 15),
-                  const _FieldLabel('CONFIRMAR NOVA SENHA'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _confirmarSenhaController,
-                    obscureText: _ocultarConfirmacao,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _redefinirSenha(),
-                    decoration: _inputDecoration(
-                      hintText: '••••••••',
-                      suffixIcon: IconButton(
-                        onPressed: () {
-                          setState(
-                            () => _ocultarConfirmacao = !_ocultarConfirmacao,
-                          );
-                        },
-                        icon: Icon(
-                          _ocultarConfirmacao
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: const Color(0xFF91A1B8),
-                          size: 20,
-                        ),
-                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _redefinirSenha,
+                      onPressed: _loading ? null : _enviarEmailRecuperacao,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF713CEB),
                         foregroundColor: Colors.white,
                         elevation: 3,
+                        disabledBackgroundColor:
+                            const Color(0xFF713CEB).withValues(alpha: 0.6),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(17),
                         ),
                       ),
-                      child: const Text(
-                        'Redefinir senha',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      child: _loading
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : const Text(
+                              'Enviar e-mail de recuperação',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _loading ? null : () => Navigator.pop(context),
                     child: const Text(
                       'Voltar para o login',
                       style: TextStyle(

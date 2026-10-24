@@ -37,12 +37,27 @@ class _ResultadosScreenState extends State<ResultadosScreen> {
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Resultados',
-          style: TextStyle(
-            color: Color(0xFF111827),
-            fontWeight: FontWeight.bold,
-          ),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Resultados',
+              style: TextStyle(
+                color: Color(0xFF111827),
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+              ),
+            ),
+            Text(
+              'Modo demonstrativo',
+              style: TextStyle(
+                color: Color(0xFF5146EE),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
       body: Column(

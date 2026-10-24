@@ -1,9 +1,103 @@
 import 'package:flutter/material.dart';
+
+import '../services/auth_service.dart';
 import 'home_screen.dart';
+import 'register_screen.dart';
 import 'reset_password_screen.dart';
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+class LoginScreen extends StatefulWidget {
+  final AuthService? authService;
+
+  const LoginScreen({super.key, this.authService});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _senhaController = TextEditingController();
+  late final AuthService _authService;
+
+  bool _loading = false;
+  bool _ocultarSenha = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService = widget.authService ?? AuthService();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _senhaController.dispose();
+    super.dispose();
+  }
+
+  bool _validarFormulario() {
+    final email = _emailController.text.trim();
+    final senha = _senhaController.text;
+
+    if (email.isEmpty) {
+      _mostrarErro('Informe o e-mail institucional.');
+      return false;
+    }
+
+    final emailValido = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email);
+    if (!emailValido) {
+      _mostrarErro('Informe um formato de e-mail válido.');
+      return false;
+    }
+
+    if (senha.isEmpty) {
+      _mostrarErro('Informe a senha de acesso.');
+      return false;
+    }
+
+    return true;
+  }
+
+  void _mostrarErro(String mensagem) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: const Color(0xFFD32F2F),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _fazerLogin() async {
+    FocusScope.of(context).unfocus();
+
+    if (_loading || !_validarFormulario()) {
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      await _authService.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _senhaController.text,
+      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _mostrarErro(e.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,11 +179,14 @@ class LoginScreen extends StatelessWidget {
                     const SizedBox(height: 8),
 
                     TextField(
+                      controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      enabled: !_loading,
                       decoration: InputDecoration(
                         hintText: 'seuemail@email.com.br',
                         filled: true,
-                        fillColor: Colors.white,    
+                        fillColor: Colors.white,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 18,
                           vertical: 17,
@@ -130,11 +227,27 @@ class LoginScreen extends StatelessWidget {
                     const SizedBox(height: 8),
 
                     TextField(
-                      obscureText: true,
+                      controller: _senhaController,
+                      obscureText: _ocultarSenha,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _fazerLogin(),
+                      enabled: !_loading,
                       decoration: InputDecoration(
                         hintText: '••••••••',
                         filled: true,
                         fillColor: Colors.white,
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setState(() => _ocultarSenha = !_ocultarSenha);
+                          },
+                          icon: Icon(
+                            _ocultarSenha
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            color: const Color(0xFF91A1B8),
+                            size: 20,
+                          ),
+                        ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 18,
                           vertical: 17,
@@ -166,14 +279,17 @@ class LoginScreen extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ResetPasswordScreen(),
-                            ),
-                          );
-                        },
+                        onPressed: _loading
+                            ? null
+                            : () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ResetPasswordScreen(),
+                                  ),
+                                );
+                              },
                         child: const Text(
                           'Esqueci minha senha',
                           style: TextStyle(
@@ -186,32 +302,60 @@ class LoginScreen extends StatelessWidget {
                     const SizedBox(height: 8),
 
                     SizedBox(
-                        height: 55,
-                        child: ElevatedButton(
-                            onPressed: () {
-                                Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) => const HomeScreen(),
-                                    ),
-                                );
-                            },
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF713CEB),
-                                foregroundColor: Colors.white,
-                                elevation: 4,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(17),
+                      height: 55,
+                      child: ElevatedButton(
+                        onPressed: _loading ? null : _fazerLogin,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF713CEB),
+                          foregroundColor: Colors.white,
+                          elevation: 4,
+                          disabledBackgroundColor:
+                              const Color(0xFF713CEB).withValues(alpha: 0.6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(17),
+                          ),
+                        ),
+                        child: _loading
+                            ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
                                 ),
-                            ),
-                            child: const Text(
+                              )
+                            : const Text(
                                 'Entrar',
                                 style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                            ),
+                              ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => RegisterScreen(
+                                    authService: _authService,
+                                  ),
+                                ),
+                              );
+                            },
+                      child: const Text(
+                        'Cadastre-se',
+                        style: TextStyle(
+                          color: Color(0xFF6438EF),
+                          fontWeight: FontWeight.w600,
                         ),
+                      ),
                     ),
 
                     const SizedBox(height: 40),
