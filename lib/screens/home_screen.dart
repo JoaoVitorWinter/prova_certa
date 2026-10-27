@@ -1,9 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../models/resultado.dart';
 import '../models/turma.dart';
 import '../models/usuario.dart';
 import '../services/auth_service.dart';
+import '../services/resultado_service.dart';
 import '../services/turma_service.dart';
 import 'banco_questoes_screen.dart';
 import 'nova_prova_screen.dart';
@@ -14,18 +16,46 @@ import 'corrigir_prova_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/app_bottom_navigation.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final AuthService? authService;
   final TurmaService? turmaService;
+  final ResultadoService? resultadoService;
 
   const HomeScreen({
     super.key,
     this.authService,
     this.turmaService,
+    this.resultadoService,
   });
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late final Stream<List<ResultadoProva>> _resultadosStream;
+
+  AuthService? get authService => widget.authService;
+  TurmaService? get turmaService => widget.turmaService;
+
+  @override
+  void initState() {
+    super.initState();
+    _resultadosStream = (widget.resultadoService ?? ResultadoService())
+        .monitorarResultados();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return StreamBuilder<List<ResultadoProva>>(
+      stream: _resultadosStream,
+      builder: (context, snapshot) =>
+          _buildTela(context, snapshot.hasError ? const [] : snapshot.data),
+    );
+  }
+
+  // [resultados] é null enquanto o primeiro snapshot não chega.
+  Widget _buildTela(BuildContext context, List<ResultadoProva>? resultados) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FB),
       body: SafeArea(
@@ -35,6 +65,7 @@ class HomeScreen extends StatelessWidget {
             _HomeHeader(
               authService: authService,
               turmaService: turmaService,
+              resultados: resultados,
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -135,33 +166,16 @@ class HomeScreen extends StatelessWidget {
                       ],
                     ),
                     SizedBox(height: 19),
-                    _RecentHeader(),
+                    _RecentHeader(
+                      onVerTodas: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ResultadosScreen(),
+                        ),
+                      ),
+                    ),
                     SizedBox(height: 11),
-                    _AssessmentCard(
-                      icon: Icons.check_rounded,
-                      iconColor: Color(0xFF009B69),
-                      iconBackground: Color(0xFFD1F8E5),
-                      title: '1ª Prova Bimestral — Cito...',
-                      details: '1º A · 2026-08-15',
-                      status: 'Encerrada',
-                      statusColor: Color(0xFFBFF3D9),
-                      progressColor: Color(0xFF00A879),
-                      score: '36/38',
-                      progress: .95,
-                    ),
-                    SizedBox(height: 10),
-                    _AssessmentCard(
-                      icon: Icons.hourglass_bottom_rounded,
-                      iconColor: Color(0xFF6582D6),
-                      iconBackground: Color(0xFFEAF0FF),
-                      title: '2ª Prova Bimestral — Genética',
-                      details: '1º A · 2026-09-20',
-                      status: 'Ativa',
-                      statusColor: Color(0xFFDCE8FF),
-                      progressColor: Color(0xFF4A58F4),
-                      score: '12/38',
-                      progress: .32,
-                    ),
+                    _AvaliacoesRecentes(resultados: resultados),
                   ],
                 ),
               ),
@@ -202,11 +216,9 @@ class HomeScreen extends StatelessWidget {
 class _HomeHeader extends StatelessWidget {
   final AuthService? authService;
   final TurmaService? turmaService;
+  final List<ResultadoProva>? resultados;
 
-  const _HomeHeader({
-    this.authService,
-    this.turmaService,
-  });
+  const _HomeHeader({this.authService, this.turmaService, this.resultados});
 
   String _obterSaudacao() {
     final hora = DateTime.now().hour;
@@ -240,8 +252,7 @@ class _HomeHeader extends StatelessWidget {
       );
     }
 
-    final currentUser =
-        Firebase.apps.isNotEmpty ? aService.currentUser : null;
+    final currentUser = Firebase.apps.isNotEmpty ? aService.currentUser : null;
 
     return StreamBuilder<Usuario?>(
       stream: aService.monitorarPerfil(uid),
@@ -250,10 +261,10 @@ class _HomeHeader extends StatelessWidget {
         final nome = usuario?.nome.isNotEmpty == true
             ? usuario!.nome
             : (currentUser?.displayName?.isNotEmpty == true
-                ? currentUser!.displayName!
-                : (currentUser?.email?.contains('@') == true
-                    ? currentUser!.email!.split('@').first
-                    : 'Professor(a)'));
+                  ? currentUser!.displayName!
+                  : (currentUser?.email?.contains('@') == true
+                        ? currentUser!.email!.split('@').first
+                        : 'Professor(a)'));
 
         final instituicao = usuario?.instituicao.isNotEmpty == true
             ? usuario!.instituicao
@@ -276,118 +287,113 @@ class _HomeHeader extends StatelessWidget {
     required String nome,
     required String instituicao,
     required String iniciais,
-  }) =>
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(23, 17, 19, 15),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF5642E8), Color(0xFF7B34ED)],
-          ),
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-        ),
-        child: Column(
+  }) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(23, 17, 19, 15),
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(colors: [Color(0xFF5642E8), Color(0xFF7B34ED)]),
+      borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+    ),
+    child: Column(
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _obterSaudacao(),
-                        style: const TextStyle(
-                          color: Color(0xFFDCD7FF),
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        nome,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (instituicao.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          instituicao,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFFC7C2F8),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ProfileScreen(
-                          turmaService: turmaService,
-                          authService: authService,
-                        ),
-                      ),
-                    );
-                  },
-                  borderRadius: BorderRadius.circular(15),
-                  child: Container(
-                    width: 43,
-                    height: 43,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: const Color(0x385F4BEE),
-                      borderRadius: BorderRadius.circular(15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _obterSaudacao(),
+                    style: const TextStyle(
+                      color: Color(0xFFDCD7FF),
+                      fontSize: 13,
                     ),
-                    child: Text(
-                      iniciais,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    nome,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (instituicao.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      instituicao,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFC7C2F8),
+                        fontSize: 11,
                       ),
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 19),
-            Row(
-              children: [
-                const Expanded(
-                  child: _Metric(
-                    value: '1',
-                    label: 'Provas (demo)',
-                    color: Color(0xFFFFE15B),
-                    isDemo: true,
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfileScreen(
+                      turmaService: turmaService,
+                      authService: authService,
+                    ),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(15),
+              child: Container(
+                width: 43,
+                height: 43,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0x385F4BEE),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Text(
+                  iniciais,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: _Metric(
-                    value: '80',
-                    label: 'Corrigidas (demo)',
-                    color: Color(0xFF5FEAC1),
-                    isDemo: true,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _AlunosTotalMetric(turmaService: turmaService),
-                ),
-              ],
+              ),
             ),
           ],
         ),
-      );
+        const SizedBox(height: 19),
+        Row(
+          children: [
+            Expanded(
+              child: _Metric(
+                value: resultados == null ? '...' : '${resultados!.length}',
+                label: 'Provas corrigidas',
+                color: const Color(0xFFFFE15B),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _Metric(
+                value: resultados == null
+                    ? '...'
+                    : '${resultados!.fold<int>(0, (soma, r) => soma + r.porAluno.length)}',
+                label: 'Folhas corrigidas',
+                color: const Color(0xFF5FEAC1),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: _AlunosTotalMetric(turmaService: turmaService)),
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
 class _AlunosTotalMetric extends StatelessWidget {
@@ -430,69 +436,41 @@ class _Metric extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
-  final bool isDemo;
 
   const _Metric({
     required this.value,
     required this.label,
     required this.color,
-    this.isDemo = false,
   });
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 69,
-        decoration: BoxDecoration(
-          color: const Color(0x287D6BEB),
-          borderRadius: BorderRadius.circular(15),
+    height: 69,
+    decoration: BoxDecoration(
+      color: const Color(0x287D6BEB),
+      borderRadius: BorderRadius.circular(15),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        child: Stack(
-          children: [
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    value,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    label,
-                    style:
-                        const TextStyle(color: Color(0xFFD5D1FF), fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            if (isDemo)
-              Positioned(
-                top: 4,
-                right: 6,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'demo',
-                    style: TextStyle(
-                      color: Color(0xFFDCD7FF),
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
+        const SizedBox(height: 1),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Color(0xFFD5D1FF), fontSize: 11),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _QuickAction extends StatelessWidget {
@@ -568,51 +546,110 @@ class _QuickAction extends StatelessWidget {
 }
 
 class _RecentHeader extends StatelessWidget {
-  const _RecentHeader();
+  final VoidCallback onVerTodas;
+
+  const _RecentHeader({required this.onVerTodas});
 
   @override
   Widget build(BuildContext context) => Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'AVALIAÇÕES RECENTES',
-                style: TextStyle(
-                  color: Color(0xFF52647C),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: .4,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'Demonstrativo',
-                  style: TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      const Text(
+        'CORREÇÕES RECENTES',
+        style: TextStyle(
+          color: Color(0xFF52647C),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: .4,
+        ),
+      ),
+      InkWell(
+        onTap: onVerTodas,
+        child: const Text(
+          'Ver todas',
+          style: TextStyle(
+            color: Color(0xFF5537E8),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
           ),
-          const Text(
-            'Ver todas',
-            style: TextStyle(
-              color: Color(0xFF5537E8),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _AvaliacoesRecentes extends StatelessWidget {
+  final List<ResultadoProva>? resultados;
+
+  const _AvaliacoesRecentes({required this.resultados});
+
+  String _data(DateTime data) {
+    final dia = data.day.toString().padLeft(2, '0');
+    final mes = data.month.toString().padLeft(2, '0');
+    return '$dia/$mes/${data.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lista = resultados;
+
+    if (lista == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFF5146EE)),
+        ),
+      );
+    }
+
+    if (lista.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: const Text(
+          'Nenhuma prova corrigida ainda. Use "Corrigir prova" para '
+          'ver aqui a média de cada avaliação.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Color(0xFF77869E), fontSize: 11, height: 1.4),
+        ),
+      );
+    }
+
+    final recentes = lista.take(3).toList();
+
+    return Column(
+      children: [
+        for (var i = 0; i < recentes.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          _AssessmentCard(
+            icon: recentes[i].media >= 6
+                ? Icons.check_rounded
+                : Icons.trending_down_rounded,
+            iconColor: recentes[i].media >= 6
+                ? const Color(0xFF009B69)
+                : const Color(0xFFDC6B2F),
+            iconBackground: recentes[i].media >= 6
+                ? const Color(0xFFD1F8E5)
+                : const Color(0xFFFFEEDF),
+            title: recentes[i].prova.nome,
+            details:
+                '${recentes[i].prova.turma.nome} · '
+                '${_data(recentes[i].prova.dataAplicacao)} · '
+                '${recentes[i].porAluno.length} folhas',
+            status: 'Corrigida',
+            statusColor: const Color(0xFFBFF3D9),
+            progressColor: const Color(0xFF00A879),
+            score: 'média ${recentes[i].media.toStringAsFixed(1)}',
+            progress: (recentes[i].media / 10).clamp(0.0, 1.0),
           ),
         ],
-      );
+      ],
+    );
+  }
 }
 
 class _AssessmentCard extends StatelessWidget {
