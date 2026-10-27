@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../mocks/resultados_mock.dart';
 import '../models/resultado.dart';
+import '../services/exportacao_service.dart';
+import '../services/resultado_service.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'home_screen.dart';
 import 'provas_screen.dart';
@@ -10,27 +11,92 @@ import 'corrigir_prova_screen.dart';
 
 enum _ResultadosTab { visaoGeral, porQuestao, alunos }
 
+enum _TipoExportacao { notas, questoes }
+
 class ResultadosScreen extends StatefulWidget {
-  const ResultadosScreen({super.key});
+  final ResultadoService? resultadoService;
+
+  // Prova que já abre selecionada (ex.: vindo da tela de correção concluída).
+  final String? provaIdInicial;
+
+  // Correção que não pôde ser gravada no Firestore; exibida só nesta sessão.
+  final ResultadoProva? resultadoNaoSalvo;
+
+  const ResultadosScreen({
+    super.key,
+    this.resultadoService,
+    this.provaIdInicial,
+    this.resultadoNaoSalvo,
+  });
 
   @override
   State<ResultadosScreen> createState() => _ResultadosScreenState();
 }
 
 class _ResultadosScreenState extends State<ResultadosScreen> {
-  int _selecionado = 0;
+  late final Stream<List<ResultadoProva>> _resultadosStream;
+  String? _provaSelecionadaId;
   _ResultadosTab _tab = _ResultadosTab.visaoGeral;
+  bool _exportando = false;
 
-  void _exportar(BuildContext context, String nome) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Exportação de "$nome" simulada.')));
+  @override
+  void initState() {
+    super.initState();
+    _provaSelecionadaId = widget.provaIdInicial;
+    _resultadosStream = (widget.resultadoService ?? ResultadoService())
+        .monitorarResultados();
+  }
+
+  List<ResultadoProva> _comResultadoLocal(List<ResultadoProva> salvos) {
+    final local = widget.resultadoNaoSalvo;
+    if (local == null) return salvos;
+    return [local, ...salvos.where((r) => r.prova.id != local.prova.id)];
+  }
+
+  Future<void> _exportar(
+    BuildContext context,
+    ResultadoProva resultado,
+    _TipoExportacao tipo,
+  ) async {
+    if (_exportando) return;
+
+    if (resultado.porAluno.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não há notas para exportar nesta prova.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _exportando = true);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final notas = tipo == _TipoExportacao.notas;
+      await ExportacaoService.exportar(
+        conteudo: notas
+            ? ExportacaoService.gerarCsvNotas(resultado)
+            : ExportacaoService.gerarCsvQuestoes(resultado),
+        nomeArquivo: ExportacaoService.nomeArquivo(
+          notas ? 'notas' : 'analise_questoes',
+          resultado,
+        ),
+        assunto:
+            '${notas ? 'Notas' : 'Análise por questão'} — '
+            '${resultado.prova.nome}',
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Não foi possível exportar o arquivo: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final resultado = resultadosMock[_selecionado];
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: AppBar(
@@ -50,7 +116,7 @@ class _ResultadosScreenState extends State<ResultadosScreen> {
               ),
             ),
             Text(
-              'Modo demonstrativo',
+              'Provas corrigidas',
               style: TextStyle(
                 color: Color(0xFF5146EE),
                 fontSize: 10,
@@ -65,33 +131,75 @@ class _ResultadosScreenState extends State<ResultadosScreen> {
           Expanded(
             child: SafeArea(
               bottom: false,
-              child: ListView(
-                padding: const EdgeInsets.all(14),
-                children: [
-                  _ProvaSelector(
-                    resultados: resultadosMock,
-                    selecionado: _selecionado,
-                    onSelecionado: (index) =>
-                        setState(() => _selecionado = index),
-                  ),
-                  const SizedBox(height: 14),
-                  _TabsBar(
-                    selecionada: _tab,
-                    onSelecionada: (tab) => setState(() => _tab = tab),
-                  ),
-                  const SizedBox(height: 14),
-                  switch (_tab) {
-                    _ResultadosTab.visaoGeral => _VisaoGeralTab(
-                      resultado: resultado,
-                    ),
-                    _ResultadosTab.porQuestao => _PorQuestaoTab(
-                      resultado: resultado,
-                    ),
-                    _ResultadosTab.alunos => _AlunosTab(resultado: resultado),
-                  },
-                  const SizedBox(height: 14),
-                  _ExportarCard(onExportar: (nome) => _exportar(context, nome)),
-                ],
+              child: StreamBuilder<List<ResultadoProva>>(
+                stream: _resultadosStream,
+                builder: (context, snapshot) {
+                  final resultados = _comResultadoLocal(
+                    snapshot.data ?? const [],
+                  );
+
+                  if (resultados.isEmpty) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF5146EE),
+                        ),
+                      );
+                    }
+                    return _EstadoVazio(
+                      erro: snapshot.hasError,
+                      onCorrigir: () => Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CorrigirProvaScreen(),
+                        ),
+                      ),
+                    );
+                  }
+
+                  var selecionado = resultados.indexWhere(
+                    (r) => r.prova.id == _provaSelecionadaId,
+                  );
+                  if (selecionado < 0) selecionado = 0;
+                  final resultado = resultados[selecionado];
+
+                  return ListView(
+                    padding: const EdgeInsets.all(14),
+                    children: [
+                      _ProvaSelector(
+                        resultados: resultados,
+                        selecionado: selecionado,
+                        onSelecionado: (index) => setState(
+                          () =>
+                              _provaSelecionadaId = resultados[index].prova.id,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _TabsBar(
+                        selecionada: _tab,
+                        onSelecionada: (tab) => setState(() => _tab = tab),
+                      ),
+                      const SizedBox(height: 14),
+                      switch (_tab) {
+                        _ResultadosTab.visaoGeral => _VisaoGeralTab(
+                          resultado: resultado,
+                        ),
+                        _ResultadosTab.porQuestao => _PorQuestaoTab(
+                          resultado: resultado,
+                        ),
+                        _ResultadosTab.alunos => _AlunosTab(
+                          resultado: resultado,
+                        ),
+                      },
+                      const SizedBox(height: 14),
+                      _ExportarCard(
+                        exportando: _exportando,
+                        onExportar: (tipo) =>
+                            _exportar(context, resultado, tipo),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -125,6 +233,76 @@ class _ResultadosScreenState extends State<ResultadosScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EstadoVazio extends StatelessWidget {
+  final bool erro;
+  final VoidCallback onCorrigir;
+
+  const _EstadoVazio({required this.erro, required this.onCorrigir});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF0FF),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.bar_chart_rounded,
+                color: Color(0xFF4A58F4),
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              erro
+                  ? 'Não foi possível carregar os resultados'
+                  : 'Nenhuma prova corrigida ainda',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              erro
+                  ? 'Verifique sua conexão e se você está conectado à sua conta.'
+                  : 'Corrija uma prova para ver a média da turma, '
+                        'o desempenho por questão e as notas de cada aluno.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF8A99AE), fontSize: 12),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: onCorrigir,
+              icon: const Icon(Icons.document_scanner_outlined, size: 18),
+              label: const Text('Corrigir prova'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5647E8),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -683,6 +861,9 @@ class _AlunosTab extends StatelessWidget {
             itemBuilder: (context, index) {
               return _ResultadoAlunoItem(
                 resultado: resultado.porAluno[index],
+                gabarito: [
+                  for (final q in resultado.porQuestao) q.alternativaCorreta,
+                ],
                 index: index,
               );
             },
@@ -695,9 +876,26 @@ class _AlunosTab extends StatelessWidget {
 
 class _ResultadoAlunoItem extends StatelessWidget {
   final ResultadoAluno resultado;
+  final List<String> gabarito;
   final int index;
 
-  const _ResultadoAlunoItem({required this.resultado, required this.index});
+  const _ResultadoAlunoItem({
+    required this.resultado,
+    required this.gabarito,
+    required this.index,
+  });
+
+  void _abrirDetalhe(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) =>
+          _DetalheAlunoSheet(resultado: resultado, gabarito: gabarito),
+    );
+  }
 
   ({Color background, Color foreground}) get _notaStyle {
     if (resultado.nota >= 7) {
@@ -743,70 +941,158 @@ class _ResultadoAlunoItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final notaStyle = _notaStyle;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: _cores[index % _cores.length],
-            child: Text(
-              _iniciais,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+    return InkWell(
+      onTap: () => _abrirDetalhe(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: _cores[index % _cores.length],
+              child: Text(
+                _iniciais,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  resultado.aluno.nome,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF111827),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    resultado.aluno.nome,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111827),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'RA: ${resultado.aluno.ra}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF94A3B8),
+                  const SizedBox(height: 2),
+                  Text(
+                    'RA: ${resultado.aluno.ra} · '
+                    '${resultado.acertos}/${gabarito.length} acertos',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF94A3B8),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: notaStyle.background,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              resultado.nota.toStringAsFixed(1),
-              style: TextStyle(
-                color: notaStyle.foreground,
-                fontWeight: FontWeight.bold,
+                ],
               ),
             ),
-          ),
-        ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: notaStyle.background,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                resultado.nota.toStringAsFixed(1),
+                style: TextStyle(
+                  color: notaStyle.foreground,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetalheAlunoSheet extends StatelessWidget {
+  final ResultadoAluno resultado;
+  final List<String> gabarito;
+
+  const _DetalheAlunoSheet({required this.resultado, required this.gabarito});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              resultado.aluno.nome,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'RA ${resultado.aluno.ra} · nota ${resultado.nota.toStringAsFixed(1)} · '
+              '${resultado.acertos}/${gabarito.length} acertos',
+              style: const TextStyle(color: Color(0xFF8A99AE), fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(gabarito.length, (i) {
+                final marcada = i < resultado.alternativasMarcadas.length
+                    ? resultado.alternativasMarcadas[i]
+                    : '?';
+                final correta = marcada == gabarito[i];
+
+                return Container(
+                  width: 62,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: correta
+                        ? const Color(0xFFD8F3E8)
+                        : const Color(0xFFFDE4E5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Q${i + 1}',
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 10,
+                        ),
+                      ),
+                      Text(
+                        marcada,
+                        style: TextStyle(
+                          color: correta
+                              ? const Color(0xFF12815E)
+                              : const Color(0xFFBF404A),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (!correta)
+                        Text(
+                          'certa: ${gabarito[i]}',
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 9,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _ExportarCard extends StatelessWidget {
-  final ValueChanged<String> onExportar;
+  final ValueChanged<_TipoExportacao> onExportar;
+  final bool exportando;
 
-  const _ExportarCard({required this.onExportar});
+  const _ExportarCard({required this.onExportar, this.exportando = false});
 
   @override
   Widget build(BuildContext context) {
@@ -826,27 +1112,39 @@ class _ExportarCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Exportar resultados',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Exportar resultados',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+              if (exportando)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           _ExportItem(
             icon: Icons.grid_on_rounded,
             iconColor: const Color(0xFF00A978),
             iconBackground: const Color(0xFFD9F8E9),
-            titulo: 'Notas dos alunos (.xlsx)',
+            titulo: 'Notas dos alunos (.csv)',
             subtitulo: 'Nome, RA, nota e alternativas marcadas',
-            onTap: () => onExportar('Notas dos alunos'),
+            onTap: () => onExportar(_TipoExportacao.notas),
           ),
           const SizedBox(height: 10),
           _ExportItem(
             icon: Icons.bar_chart_rounded,
             iconColor: const Color(0xFF4A58F4),
             iconBackground: const Color(0xFFEAF0FF),
-            titulo: 'Análise por questão (.xlsx)',
+            titulo: 'Análise por questão (.csv)',
             subtitulo: 'Alternativas mais escolhidas por questão',
-            onTap: () => onExportar('Análise por questão'),
+            onTap: () => onExportar(_TipoExportacao.questoes),
           ),
         ],
       ),
