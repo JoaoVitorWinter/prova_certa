@@ -156,6 +156,40 @@ class ResultadoAluno {
     };
   }
 
+  /// Corrige as respostas de um aluno contra o gabarito. A nota vai de 0 a 10
+  /// com uma casa decimal; respostas não identificadas ('?') contam como erro.
+  factory ResultadoAluno.corrigir({
+    required Aluno aluno,
+    required List<String> respostas,
+    required List<String> gabarito,
+    String? provaId,
+    String? turmaId,
+    DateTime? corrigidoEm,
+  }) {
+    final marcadas = List<String>.generate(
+      gabarito.length,
+      (i) => i < respostas.length ? respostas[i].trim().toUpperCase() : '?',
+    );
+
+    var acertos = 0;
+    for (var i = 0; i < gabarito.length; i++) {
+      if (marcadas[i] == gabarito[i].trim().toUpperCase()) acertos++;
+    }
+
+    final nota = gabarito.isEmpty ? 0.0 : (acertos / gabarito.length) * 10;
+
+    return ResultadoAluno(
+      id: aluno.id,
+      aluno: aluno,
+      nota: double.parse(nota.toStringAsFixed(1)),
+      acertos: acertos,
+      alternativasMarcadas: marcadas,
+      provaId: provaId,
+      turmaId: turmaId,
+      corrigidoEm: corrigidoEm ?? DateTime.now(),
+    );
+  }
+
   factory ResultadoAluno.fromMap(
     Map<String, dynamic> map, {
     String? id,
@@ -232,6 +266,77 @@ class ResultadoProva {
     required this.porQuestao,
     required this.porAluno,
   });
+
+  static const faixasNota = ['0-2', '2-4', '4-6', '6-8', '8-10'];
+
+  /// Calcula as estatísticas da prova (geral, por questão e por aluno)
+  /// a partir dos resultados individuais já corrigidos.
+  factory ResultadoProva.calcular({
+    required Prova prova,
+    required List<String> gabarito,
+    required List<ResultadoAluno> porAluno,
+  }) {
+    final alunos = List<ResultadoAluno>.of(porAluno)
+      ..sort((a, b) => a.aluno.nome.toLowerCase().compareTo(b.aluno.nome.toLowerCase()));
+    final notas = alunos.map((r) => r.nota).toList();
+
+    final media = notas.isEmpty ? 0.0 : notas.reduce((a, b) => a + b) / notas.length;
+    final minimo = notas.isEmpty ? 0.0 : notas.reduce((a, b) => a < b ? a : b);
+    final maximo = notas.isEmpty ? 0.0 : notas.reduce((a, b) => a > b ? a : b);
+
+    final contagemFaixas = List<int>.filled(faixasNota.length, 0);
+    for (final nota in notas) {
+      final indice = (nota ~/ 2).clamp(0, faixasNota.length - 1);
+      contagemFaixas[indice]++;
+    }
+
+    // Mostra sempre A–D; E só aparece se estiver no gabarito ou em alguma resposta.
+    final usaE = gabarito.contains('E') ||
+        alunos.any((r) => r.alternativasMarcadas.contains('E'));
+    final letras = ['A', 'B', 'C', 'D', if (usaE) 'E'];
+
+    final porQuestao = <ResultadoQuestao>[];
+    for (var i = 0; i < gabarito.length; i++) {
+      final correta = gabarito[i];
+      final total = alunos.length;
+      final alternativas = letras.map((letra) {
+        final quantidade = alunos
+            .where((r) => i < r.alternativasMarcadas.length && r.alternativasMarcadas[i] == letra)
+            .length;
+        return AlternativaDistribuicao(
+          letra: letra,
+          quantidade: quantidade,
+          percentual: total == 0 ? 0 : (quantidade / total) * 100,
+          correta: letra == correta,
+        );
+      }).toList();
+      final acertos = alternativas
+          .where((a) => a.correta)
+          .fold<int>(0, (soma, a) => soma + a.quantidade);
+
+      porQuestao.add(
+        ResultadoQuestao(
+          numero: i + 1,
+          alternativaCorreta: correta,
+          percentualAcerto: total == 0 ? 0 : (acertos / total) * 100,
+          alternativas: alternativas,
+        ),
+      );
+    }
+
+    return ResultadoProva(
+      prova: prova,
+      media: double.parse(media.toStringAsFixed(1)),
+      minimo: minimo,
+      maximo: maximo,
+      distribuicao: [
+        for (var i = 0; i < faixasNota.length; i++)
+          FaixaDistribuicao(faixa: faixasNota[i], quantidade: contagemFaixas[i]),
+      ],
+      porQuestao: porQuestao,
+      porAluno: alunos,
+    );
+  }
 
   /// Serializa o resumo agregado estatístico para persistência no documento da Prova
   Map<String, dynamic> toFirestoreResumo() {

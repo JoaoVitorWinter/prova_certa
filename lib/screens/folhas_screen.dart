@@ -1,6 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
+import '../models/aluno.dart';
 import '../models/prova.dart';
+import '../models/resultado.dart';
+import '../services/resultado_service.dart';
+import '../services/turma_service.dart';
 import 'correcao_concluida_screen.dart';
 
 class FolhasScreen extends StatefulWidget {
@@ -9,7 +15,16 @@ class FolhasScreen extends StatefulWidget {
   // Gabarito vindo do QR Code lido no passo anterior.
   final List<String> gabarito;
 
-  const FolhasScreen({super.key, required this.prova, required this.gabarito});
+  final TurmaService? turmaService;
+  final ResultadoService? resultadoService;
+
+  const FolhasScreen({
+    super.key,
+    required this.prova,
+    required this.gabarito,
+    this.turmaService,
+    this.resultadoService,
+  });
 
   @override
   State<FolhasScreen> createState() => _FolhasScreenState();
@@ -22,13 +37,56 @@ class _FolhasScreenState extends State<FolhasScreen> {
 
   final List<Map<String, dynamic>> _folhasLidas = [];
 
-  bool _abrindoLeitor = false;
+  // Alunos da turma da prova: cada folha lida pertence ao próximo aluno da lista.
+  List<Aluno> _alunos = [];
+  bool _carregandoAlunos = true;
 
-  // Fluxo mockado: uma folha de um aluno fictício basta para validar a etapa de correção.
-  int get _totalFolhas => 1;
+  bool _abrindoLeitor = false;
+  bool _salvando = false;
+
+  int get _totalFolhas => _alunos.isEmpty ? 1 : _alunos.length;
 
   bool get _todasLidas {
     return _folhasLidas.length >= _totalFolhas;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarAlunos();
+  }
+
+  // ============================================================
+  // ALUNOS DA TURMA
+  // ============================================================
+
+  Future<void> _carregarAlunos() async {
+    var alunos = <Aluno>[];
+
+    try {
+      final service = widget.turmaService ?? TurmaService();
+      alunos = await service.listarAlunos(turmaId: widget.prova.turma.id);
+    } catch (_) {
+      // Sem Firebase/sessão ou turma inexistente no Firestore: usa os alunos da prova.
+    }
+
+    if (alunos.isEmpty) alunos = List.of(widget.prova.turma.alunos);
+    alunos.sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
+
+    if (!mounted) return;
+    setState(() {
+      _alunos = alunos;
+      _carregandoAlunos = false;
+    });
+  }
+
+  Aluno _alunoDaFolha(int indice) {
+    if (indice < _alunos.length) return _alunos[indice];
+    return Aluno(
+      id: 'folha_${indice + 1}',
+      nome: 'Aluno ${indice + 1}',
+      ra: '${indice + 1}'.padLeft(6, '0'),
+    );
   }
 
   // ============================================================
@@ -44,11 +102,11 @@ class _FolhasScreenState extends State<FolhasScreen> {
   }
 
   // ============================================================
-  // ABRIR A CÂMERA PARA LER A PRÓXIMA FOLHA
+  // LER A PRÓXIMA FOLHA
   // ============================================================
 
   Future<void> _lerProximaFolha() async {
-    if (_abrindoLeitor || _todasLidas) {
+    if (_abrindoLeitor || _todasLidas || _carregandoAlunos) {
       return;
     }
 
@@ -62,29 +120,34 @@ class _FolhasScreenState extends State<FolhasScreen> {
       return;
     }
 
+    final aluno = _alunoDaFolha(_folhasLidas.length);
     final gabarito = widget.gabarito;
-    final respostas = <String>[];
 
-    for (int i = 0; i < gabarito.length; i++) {
-      final alternativa = ['A', 'B', 'C', 'D', 'E'][i % 5];
-      respostas.add(i % 2 == 0 ? gabarito[i] : alternativa);
-    }
+    // Leitura simulada: cada aluno tem um padrão de respostas próprio e estável,
+    // acertando cerca de 70% das questões.
+    final random = math.Random(Object.hash(aluno.id, widget.prova.id));
+    final respostas = <String>[
+      for (final correta in gabarito)
+        random.nextDouble() < .7
+            ? correta
+            : (['A', 'B', 'C', 'D']..remove(correta))[random.nextInt(3)],
+    ];
 
-    int acertos = 0;
-    for (int i = 0; i < respostas.length; i++) {
-      if (i < gabarito.length && respostas[i] == gabarito[i]) {
-        acertos++;
-      }
-    }
+    final resultado = ResultadoAluno.corrigir(
+      aluno: aluno,
+      respostas: respostas,
+      gabarito: gabarito,
+    );
 
     final novoResultado = <String, dynamic>{
-      'aluno': 'Ana Souza',
-      'matricula': '2026001',
-      'respostas': respostas,
+      'alunoObj': aluno,
+      'aluno': aluno.nome,
+      'matricula': aluno.ra,
+      'respostas': resultado.alternativasMarcadas,
       'gabarito': gabarito,
-      'acertos': acertos,
+      'acertos': resultado.acertos,
       'total': gabarito.length,
-      'numeroFolha': 1,
+      'numeroFolha': _folhasLidas.length + 1,
     };
 
     setState(() {
@@ -97,10 +160,12 @@ class _FolhasScreenState extends State<FolhasScreen> {
   // FINALIZAR CORREÇÃO
   // ============================================================
 
-  void _finalizar() {
-    if (!_todasLidas) {
+  Future<void> _finalizar() async {
+    if (_folhasLidas.isEmpty || _salvando) {
       return;
     }
+
+    setState(() => _salvando = true);
 
     int totalAcertos = 0;
     int totalQuestoes = 0;
@@ -110,6 +175,37 @@ class _FolhasScreenState extends State<FolhasScreen> {
       totalQuestoes += _totalQuestoes(folha);
     }
 
+    final resultados = [
+      for (final folha in _folhasLidas)
+        ResultadoAluno.corrigir(
+          aluno: folha['alunoObj'] as Aluno,
+          respostas: List<String>.from(folha['respostas'] as List),
+          gabarito: widget.gabarito,
+          provaId: widget.prova.id,
+          turmaId: widget.prova.turma.id,
+        ),
+    ];
+
+    var salvo = true;
+    ResultadoProva resultado;
+    try {
+      final service = widget.resultadoService ?? ResultadoService();
+      resultado = await service.salvarCorrecao(
+        prova: widget.prova,
+        gabarito: widget.gabarito,
+        resultados: resultados,
+      );
+    } catch (_) {
+      salvo = false;
+      resultado = ResultadoProva.calcular(
+        prova: widget.prova,
+        gabarito: widget.gabarito,
+        porAluno: resultados,
+      );
+    }
+
+    if (!mounted) return;
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -118,6 +214,8 @@ class _FolhasScreenState extends State<FolhasScreen> {
           folhasCorrigidas: _folhasLidas.length,
           totalAcertos: totalAcertos,
           totalQuestoes: totalQuestoes,
+          resultado: resultado,
+          salvo: salvo,
         ),
       ),
     );
@@ -328,7 +426,9 @@ class _FolhasScreenState extends State<FolhasScreen> {
           Text(
             terminou
                 ? 'Você já pode finalizar a correção.'
-                : 'A câmera captura a folha e analisa as respostas.',
+                : _carregandoAlunos
+                ? 'Carregando alunos da turma...'
+                : 'Próxima folha: ${_alunoDaFolha(_folhasLidas.length).nome}',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Color(0xFF8994A6), fontSize: 10),
           ),
@@ -515,37 +615,65 @@ class _FolhasScreenState extends State<FolhasScreen> {
 
   Widget _buildBottomButton() {
     final terminou = _todasLidas;
+    final ocupado = _abrindoLeitor || _salvando || _carregandoAlunos;
+    final podeFinalizarParcial = !terminou && _folhasLidas.isNotEmpty;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 11, 18, 14),
       color: Colors.white,
-      child: SizedBox(
-        height: 42,
-        child: ElevatedButton(
-          onPressed: _abrindoLeitor
-              ? null
-              : terminou
-              ? _finalizar
-              : _lerProximaFolha,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF5647E8),
-            disabledBackgroundColor: const Color(0xFFD8DAE3),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Alunos ausentes: permite encerrar sem ler todas as folhas da turma.
+          // Fica acima do botão principal para ele não mudar de lugar.
+          if (podeFinalizarParcial)
+            TextButton(
+              onPressed: ocupado ? null : _finalizar,
+              child: Text(
+                'Finalizar com ${_folhasLidas.length} '
+                '${_folhasLidas.length == 1 ? 'folha' : 'folhas'}',
+                style: const TextStyle(
+                  color: Color(0xFF5647E8),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton(
+              onPressed: ocupado
+                  ? null
+                  : terminou
+                  ? _finalizar
+                  : _lerProximaFolha,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5647E8),
+                disabledBackgroundColor: const Color(0xFFD8DAE3),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                _salvando
+                    ? 'Salvando resultados...'
+                    : _abrindoLeitor
+                    ? 'Lendo folha...'
+                    : terminou
+                    ? 'Finalizar correção'
+                    : 'Ler folha',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
-          child: Text(
-            _abrindoLeitor
-                ? 'Abrindo câmera...'
-                : terminou
-                ? 'Finalizar correção'
-                : 'Ler folha',
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-          ),
-        ),
+        ],
       ),
     );
   }
