@@ -4,7 +4,7 @@
 
 O projeto Prova Certa é um protótipo de aplicativo mobile desenvolvido em Flutter para apoiar atividades de gestão escolar e avaliação acadêmica. A solução foi pensada para facilitar o trabalho do professor na organização de turmas, criação e acompanhamento de provas, além de simular o processo de correção de avaliações.
 
-O projeto está em fase de protótipo front-end com dados mockados, ou seja, ele apresenta a interface e o fluxo funcional principal, mas ainda não possui integração real com backend, autenticação real, banco de dados ou processamento de OCR/QR em produção.
+O aplicativo usa Firebase: a autenticação é feita pelo Firebase Authentication e os dados do professor (perfil, turmas, alunos e resultados das correções) ficam no Cloud Firestore, isolados por usuário. Algumas partes continuam demonstrativas: a lista de provas e o banco de questões usam dados mockados, e a leitura das folhas de resposta é simulada.
 
 ---
 
@@ -15,8 +15,10 @@ O objetivo principal do sistema é permitir que o professor:
 - gerencie turmas e alunos;
 - crie e visualize provas;
 - acompanhe o status das avaliações;
-- simule a correção por QR Code e leitura de folhas;
-- visualize resultados e informações gerais do perfil do docente.
+- corrija provas lendo o gabarito por QR Code e as folhas de resposta;
+- acompanhe os resultados por turma, por questão e por aluno;
+- exporte as notas para planilha (CSV, abre no Excel) e compartilhe o arquivo;
+- visualize informações gerais do perfil do docente.
 
 A ideia é reduzir a rotina manual e centralizar a organização de avaliações em uma interface intuitiva e bem estruturada.
 
@@ -31,21 +33,17 @@ Este projeto abrange a implementação de uma interface funcional para apresenta
 - gestão de turmas;
 - visualização e filtro de provas;
 - criação de nova prova;
-- fluxo de correção mockado;
-- telas de resultados e perfil;
+- fluxo de correção com leitura do gabarito por QR Code e leitura simulada das folhas;
+- resultados reais por prova, por questão e por aluno, salvos no Firestore;
+- exportação das notas e da análise por questão em CSV, com compartilhamento;
+- telas de perfil;
 - estrutura de navegação via barra inferior.
-
-O escopo foi delimitado para um protótipo de alta fidelidade, sem persistência real, sem regras de negócio complexas e sem integração com serviços externos.
 
 ### O que não está incluso no momento
 
-- autenticação real;
-- banco de dados persistente;
-- backend/API;
-- leitura real de QR code em produção;
-- OCR real de folhas de respostas;
-- sincronização com dados reais de alunos e turmas;
-- lógica de geração/armazenamento de provas em produção.
+- OCR real das folhas de resposta (a leitura das folhas é simulada: cada aluno da turma recebe um conjunto de respostas estável);
+- geração do QR Code do gabarito dentro do app;
+- persistência das provas e do banco de questões no Firestore (ainda usam dados mockados).
 
 ---
 
@@ -70,16 +68,22 @@ O sistema deve exibir uma lista de provas com possibilidade de filtro por catego
 O sistema deve permitir criar uma nova prova em fluxo de etapas, com dados básicos e etapas de configuração.
 
 ### RF07 - Correção de prova
-O sistema deve permitir iniciar o fluxo de correção de prova, simulando o uso de QR Code e leitura de folhas.
+O sistema deve permitir corrigir uma prova: ler o gabarito pelo QR Code e ler uma folha de resposta para cada aluno da turma, podendo finalizar mesmo com alunos ausentes.
 
 ### RF08 - Resultado da correção
-O sistema deve mostrar o resultado de uma avaliação corrigida com métricas simplificadas.
+Ao finalizar, o sistema deve calcular a nota de cada aluno, salvar os resultados no Firestore e mostrar o resumo da correção com a média da turma.
 
 ### RF09 - Visualização de resultados
-O sistema deve disponibilizar uma tela com indicadores e estatísticas das avaliações.
+O sistema deve disponibilizar uma tela com os resultados reais de cada prova corrigida: média, menor e maior nota e distribuição das notas (visão geral), percentual de acerto e alternativas marcadas em cada questão (por questão) e nota, acertos e respostas de cada aluno (por aluno).
 
 ### RF10 - Perfil do professor
 O sistema deve apresentar dados do usuário e opções de configuração.
+
+### RF11 - Exportação de notas
+O sistema deve gerar arquivos CSV com as notas dos alunos e com a análise por questão, prontos para abrir no Excel (separador `;` e acentuação preservada), e abrir o compartilhamento do aparelho (WhatsApp, e-mail, Drive etc.).
+
+### RF12 - Dashboard
+A tela inicial deve exibir dados reais: quantidade de provas corrigidas, folhas corrigidas, total de alunos e as correções mais recentes com a média de cada uma.
 
 ---
 
@@ -91,8 +95,8 @@ A aplicação deve apresentar uma UI consistente e adaptável ao uso em disposit
 ### RNF02 - Navegação intuitiva
 As telas devem possuir fluxo claro, com navegação simples entre menu principal, ações rápidas e subfluxos.
 
-### RNF03 - Prototipação front-end
-O projeto deve priorizar a experiência visual e a usabilidade para validação de fluxo, mesmo com dados simulados.
+### RNF03 - Persistência e isolamento
+Os dados devem ser gravados no Cloud Firestore dentro de `usuarios/{uid}`, e as regras de segurança (`firestore.rules`) devem impedir que um professor acesse os dados de outro.
 
 ### RNF04 - Organização de código
 Os arquivos devem seguir uma estrutura modular em Flutter, separando telas, modelos e mocks.
@@ -125,8 +129,8 @@ O projeto contempla as principais telas abaixo:
 2. Entra na home do app.
 3. Navega entre início, provas, corrigir, resultados e turmas.
 4. Cria ou acessa avaliações.
-5. Simula a correção de prova com QR e folhas mockadas.
-6. Visualiza o resultado da correção e demais informações.
+5. Corrige uma prova: lê o QR Code do gabarito e uma folha por aluno.
+6. Visualiza os resultados (geral, por questão e por aluno) e exporta as notas em CSV.
 
 ---
 
@@ -135,9 +139,11 @@ O projeto contempla as principais telas abaixo:
 - Flutter
 - Dart
 - Material Design
-- Mobile Scanner (mockado para simular leitura de QR)
-- Camera (preparada para integração futura)
-- Estrutura de models, screens e mocks
+- Firebase Authentication e Cloud Firestore
+- Mobile Scanner (leitura do QR Code do gabarito)
+- Camera e image (leitor de folhas, preparado para OCR)
+- csv, path_provider e share_plus (exportação e compartilhamento das notas)
+- Estrutura de models, services, screens e mocks
 
 ---
 
@@ -146,15 +152,24 @@ O projeto contempla as principais telas abaixo:
 ```text
 lib/
   main.dart
-  mocks/
-  models/
-  screens/
+  firebase_options.dart
+  mocks/      dados demonstrativos (provas e questões)
+  models/     entidades e conversão para o Firestore
+  screens/    telas
+  services/   autenticação, turmas, resultados e exportação
   widgets/
 
 test/
 ```
 
-A estrutura segue organização por responsabilidade, separando dados mockados, modelos de domínio e telas da aplicação.
+A estrutura segue organização por responsabilidade, separando dados mockados, modelos de domínio, serviços de acesso a dados e telas da aplicação.
+
+### Onde ficam os resultados no Firestore
+
+```text
+usuarios/{uid}/provas/{provaId}                        resumoResultado (média, distribuição, por questão) e gabaritoOficial
+usuarios/{uid}/provas/{provaId}/resultados/{alunoId}   nota, acertos e alternativas marcadas pelo aluno
+```
 
 ---
 
@@ -179,15 +194,22 @@ flutter pub get
 flutter run
 ```
 
-Se quiser, também pode usar o comando abaixo para verificar se o projeto está sem erros de análise:
+Para verificar se o projeto está sem erros de análise e rodar os testes automatizados:
 
 ```bash
 flutter analyze
+flutter test
 ```
 
 ### Opção 3: executável
 
 O projeto também pode ser executado diretamente pelo executável gerado para a entrega (.\build\app\outputs\flutter-apk\app-release.apk).
+
+Para gerar o APK é preciso ter o Android SDK instalado (pelo Android Studio). Depois, rode:
+
+```bash
+flutter build apk --release
+```
 
 ---
 
@@ -201,7 +223,7 @@ Adicionar aqui o link do vídeo de apresentação do projeto:
 
 ## 11. Observações finais
 
-Este aplicativo representa um protótipo funcional para validação de fluxo e apresentação de interface. Ele demonstra o uso de telas mockadas, navegação entre módulos e um simulador de correção de provas, sendo uma base sólida para evolução em projetos futuros com backend e automação real.
+O aplicativo já integra autenticação, turmas, alunos, correção e resultados com o Firebase, e permite exportar as notas. Os próximos passos são persistir provas e questões no Firestore, gerar o QR Code do gabarito no próprio app e trocar a leitura simulada das folhas por reconhecimento real das marcações.
 
 ---
 
@@ -209,8 +231,8 @@ Este aplicativo representa um protótipo funcional para validação de fluxo e a
 
 - Nome: Prova Certa
 - Tecnologias: Flutter + Dart
-- Tipo: protótipo mobile front-end
-- Estado atual: em desenvolvimento com dados mockados
+- Tipo: aplicativo mobile com Firebase
+- Estado atual: em desenvolvimento; provas, questões e leitura das folhas ainda são demonstrativas
 
 ---
 
