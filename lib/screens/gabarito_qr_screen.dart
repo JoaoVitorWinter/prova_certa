@@ -24,14 +24,14 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
   List<String> _gabarito = [];
 
   @override
-  void initState() {
-    super.initState();
+void initState() {
+  super.initState();
 
-    // Mock temporario enquanto ainda nao existem QR Codes validos.
-    _gabarito = List<String>.filled(widget.prova.quantidadeQuestoes, 'A');
-    _qrLido = true;
-    _codigoLido = 'MOCK-QR';
-  }
+  _gabarito = [];
+  _qrLido = false;
+  _processando = false;
+  _codigoLido = null;
+}
 
   /// Aceita "D,D,D,D,D", "D;D;D;D;D", "DDDDD" ou "D D D D D".
   /// Retorna lista vazia se o conteudo nao for um gabarito valido.
@@ -65,69 +65,89 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
     super.dispose();
   }
 
-  void _processarQr(BarcodeCapture capture) {
-    if (_qrLido || _processando) return;
+  
+void _processarQr(BarcodeCapture capture) {
+  if (_qrLido || _processando) return;
 
-    for (final barcode in capture.barcodes) {
-      final valor = barcode.rawValue;
+  for (final barcode in capture.barcodes) {
+    final valor = barcode.rawValue;
 
-      if (valor == null || valor.trim().isEmpty) continue;
+    if (valor == null || valor.trim().isEmpty) continue;
+
+    setState(() {
+      _processando = true;
+      _codigoLido = valor;
+    });
+
+    _scannerController.stop();
+
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+
+      final gabarito = _parseGabarito(valor);
+
+      if (gabarito.isEmpty ||
+          gabarito.length != widget.prova.quantidadeQuestoes) {
+        setState(() {
+          _processando = false;
+          _codigoLido = null;
+          _qrLido = false;
+          _gabarito = [];
+        });
+
+        _scannerController.start();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              gabarito.isEmpty
+                  ? 'QR Code inválido. Não contém um gabarito válido.'
+                  : 'O QR Code contém ${gabarito.length} respostas, '
+                      'mas a prova exige '
+                      '${widget.prova.quantidadeQuestoes}.',
+            ),
+          ),
+        );
+
+        return;
+      }
 
       setState(() {
-        _processando = true;
+        _gabarito = gabarito;
+        _qrLido = true;
+        _processando = false;
         _codigoLido = valor;
       });
+    });
 
-      _scannerController.stop();
-
-      // Pequeno atraso para dar sensação de processamento.
-      Future.delayed(const Duration(milliseconds: 700), () {
-        if (!mounted) return;
-
-        final gabarito = _parseGabarito(valor);
-
-        // QR lido, mas nao contem um gabarito valido: volta a escanear.
-        if (gabarito.isEmpty) {
-          setState(() {
-            _processando = false;
-            _codigoLido = null;
-          });
-
-          _scannerController.start();
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('QR Code invalido: nao contem um gabarito.'),
-            ),
-          );
-
-          return;
-        }
-
-        setState(() {
-          _gabarito = gabarito;
-          _qrLido = true;
-          _processando = false;
-        });
-      });
-
-      break;
-    }
+    break;
   }
+}
+
 
   void _avancar() {
-    final gabarito = _gabarito.isEmpty
-        ? List<String>.filled(widget.prova.quantidadeQuestoes, 'A')
-        : _gabarito;
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            FolhasScreen(prova: widget.prova, gabarito: gabarito),
+  if (!_qrLido ||
+      _gabarito.length != widget.prova.quantidadeQuestoes) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Lê um QR Code válido com todas as respostas antes de continuar.',
+        ),
       ),
     );
+    return;
   }
+
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (context) => FolhasScreen(
+        prova: widget.prova,
+        gabarito: List<String>.from(_gabarito),
+      ),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -347,7 +367,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
       child: SizedBox(
         height: 41,
         child: ElevatedButton(
-          onPressed: _avancar,
+          onPressed: _qrLido && !_processando ? _avancar : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF5647E8),
             disabledBackgroundColor: const Color(0xFFD7D9E2),
@@ -358,7 +378,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
             ),
           ),
           child: Text(
-            'QR mockado — avançar',
+            'Continuar para as folhas',
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
           ),
         ),

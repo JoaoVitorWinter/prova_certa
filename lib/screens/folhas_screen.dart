@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -8,6 +7,7 @@ import '../models/resultado.dart';
 import '../services/resultado_service.dart';
 import '../services/turma_service.dart';
 import 'correcao_concluida_screen.dart';
+import 'leitor_folha_screen.dart';
 
 class FolhasScreen extends StatefulWidget {
   final Prova prova;
@@ -106,55 +106,105 @@ class _FolhasScreenState extends State<FolhasScreen> {
   // ============================================================
 
   Future<void> _lerProximaFolha() async {
-    if (_abrindoLeitor || _todasLidas || _carregandoAlunos) {
-      return;
-    }
+  if (_abrindoLeitor || _todasLidas || _carregandoAlunos) {
+    return;
+  }
 
-    setState(() {
-      _abrindoLeitor = true;
-    });
+  if (widget.gabarito.length != widget.prova.quantidadeQuestoes) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'O gabarito não corresponde à quantidade de questões da prova.',
+        ),
+      ),
+    );
+    return;
+  }
 
-    await Future.delayed(const Duration(milliseconds: 700));
+  setState(() {
+    _abrindoLeitor = true;
+  });
 
-    if (!mounted) {
-      return;
-    }
-
+  try {
     final aluno = _alunoDaFolha(_folhasLidas.length);
-    final gabarito = widget.gabarito;
 
-    // Leitura simulada: cada aluno tem um padrão de respostas próprio e estável,
-    // acertando cerca de 70% das questões.
-    final random = math.Random(Object.hash(aluno.id, widget.prova.id));
-    final respostas = <String>[
-      for (final correta in gabarito)
-        random.nextDouble() < .7
-            ? correta
-            : (['A', 'B', 'C', 'D']..remove(correta))[random.nextInt(3)],
-    ];
-
-    final resultado = ResultadoAluno.corrigir(
-      aluno: aluno,
-      respostas: respostas,
-      gabarito: gabarito,
+    final resultado = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LeitorFolhaScreen(
+          prova: widget.prova,
+          numeroFolha: _folhasLidas.length + 1,
+          gabarito: widget.gabarito,
+        ),
+      ),
     );
 
-    final novoResultado = <String, dynamic>{
+    if (!mounted) return;
+
+    if (resultado == null) {
+      setState(() {
+        _abrindoLeitor = false;
+      });
+      return;
+    }
+
+    final respostas = List<String>.from(
+      resultado['respostas'] as List? ?? <String>[],
+    );
+
+    if (respostas.length != widget.gabarito.length) {
+      setState(() {
+        _abrindoLeitor = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A leitura não identificou todas as respostas. '
+            'Tenta novamente.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final correcao = ResultadoAluno.corrigir(
+      aluno: aluno,
+      respostas: respostas,
+      gabarito: widget.gabarito,
+      provaId: widget.prova.id,
+      turmaId: widget.prova.turma.id,
+    );
+
+    final novaFolha = <String, dynamic>{
       'alunoObj': aluno,
       'aluno': aluno.nome,
       'matricula': aluno.ra,
-      'respostas': resultado.alternativasMarcadas,
-      'gabarito': gabarito,
-      'acertos': resultado.acertos,
-      'total': gabarito.length,
+      'respostas': correcao.alternativasMarcadas,
+      'gabarito': widget.gabarito,
+      'acertos': correcao.acertos,
+      'total': widget.gabarito.length,
       'numeroFolha': _folhasLidas.length + 1,
     };
 
     setState(() {
+      _folhasLidas.add(novaFolha);
       _abrindoLeitor = false;
-      _folhasLidas.add(novoResultado);
     });
+  } catch (e) {
+    if (!mounted) return;
+
+    setState(() {
+      _abrindoLeitor = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Não foi possível ler a folha: $e'),
+      ),
+    );
   }
+}
 
   // ============================================================
   // FINALIZAR CORREÇÃO
@@ -195,13 +245,26 @@ class _FolhasScreenState extends State<FolhasScreen> {
         gabarito: widget.gabarito,
         resultados: resultados,
       );
-    } catch (_) {
+    } catch (e, stackTrace) {
       salvo = false;
+
+      debugPrint('ERRO AO SALVAR CORREÇÃO NO FIRESTORE: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
       resultado = ResultadoProva.calcular(
         prova: widget.prova,
         gabarito: widget.gabarito,
         porAluno: resultados,
       );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Não foi possível salvar os resultados: $e'),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
     }
 
     if (!mounted) return;
