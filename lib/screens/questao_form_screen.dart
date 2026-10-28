@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 
-import '../mocks/questoes_mock.dart';
 import '../models/alternativa.dart';
 import '../models/questao.dart';
+import '../services/questao_service.dart';
 import 'banco_questoes_screen.dart';
 
 const disciplinaPadrao = 'Biologia';
-const maximoAlternativas = 5;
-const minimoAlternativas = 2;
+const maximoAlternativas = QuestaoService.maximoAlternativas;
+const minimoAlternativas = QuestaoService.minimoAlternativas;
 
 class QuestaoFormScreen extends StatefulWidget {
   final Questao? questao;
+  final QuestaoService? questaoService;
+  final List<String> assuntosExistentes;
 
   const QuestaoFormScreen({
     super.key,
     this.questao,
+    this.questaoService,
+    this.assuntosExistentes = const [],
   });
 
   @override
@@ -22,6 +26,8 @@ class QuestaoFormScreen extends StatefulWidget {
 }
 
 class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
+  late final QuestaoService questaoService;
+
   final enunciadoController = TextEditingController();
   final assuntoController = TextEditingController();
 
@@ -29,12 +35,15 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
 
   String dificuldade = 'Fácil';
   int corretaIndex = 0;
+  bool salvando = false;
 
   bool get editando => widget.questao != null;
 
   @override
   void initState() {
     super.initState();
+
+    questaoService = widget.questaoService ?? QuestaoService();
 
     final questao = widget.questao;
 
@@ -79,17 +88,7 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
     return String.fromCharCode(65 + index);
   }
 
-  List<String> get assuntosExistentes {
-    final lista = <String>[];
-
-    for (final questao in questoesMock) {
-      if (!lista.contains(questao.assunto)) {
-        lista.add(questao.assunto);
-      }
-    }
-
-    return lista;
-  }
+  List<String> get assuntosExistentes => widget.assuntosExistentes;
 
   bool get alternativasPreenchidas {
     return alternativaControllers.every(
@@ -130,8 +129,10 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
     });
   }
 
-  void salvar() {
-    if (!formularioValido) {
+  Future<void> salvar() async {
+    FocusScope.of(context).unfocus();
+
+    if (!formularioValido || salvando) {
       return;
     }
 
@@ -147,17 +148,45 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
     }
 
     final questao = Questao(
-      id: widget.questao?.id ??
-          'q${DateTime.now().millisecondsSinceEpoch}',
+      id: widget.questao?.id ?? '',
       enunciado: enunciadoController.text.trim(),
       alternativas: alternativas,
       correta: letraPara(corretaIndex),
       assunto: assuntoController.text.trim(),
       dificuldade: dificuldade,
       disciplina: widget.questao?.disciplina ?? disciplinaPadrao,
+      criadoEm: widget.questao?.criadoEm,
     );
 
-    Navigator.pop(context, questao);
+    setState(() => salvando = true);
+
+    try {
+      final salva = editando
+          ? await questaoService.atualizarQuestao(questao)
+          : await questaoService.criarQuestao(questao);
+
+      if (mounted) {
+        Navigator.pop(context, salva);
+      }
+    } catch (e) {
+      if (mounted) {
+        final mensagem = e is ArgumentError
+            ? '${e.message}'
+            : e.toString().replaceFirst('Exception: ', '');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(mensagem),
+            backgroundColor: const Color(0xFFD32F2F),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => salvando = false);
+      }
+    }
   }
 
   @override
@@ -435,7 +464,7 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
             height: 54,
 
             child: ElevatedButton(
-              onPressed: formularioValido ? salvar : null,
+              onPressed: formularioValido && !salvando ? salvar : null,
 
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6545E8),
@@ -447,14 +476,24 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
                 ),
               ),
 
-              child: Text(
-                editando ? 'Salvar alterações' : 'Criar questão',
+              child: salvando
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
 
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                  : Text(
+                      editando ? 'Salvar alterações' : 'Criar questão',
+
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
           ),
 

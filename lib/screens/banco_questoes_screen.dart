@@ -1,27 +1,79 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../mocks/questoes_mock.dart';
 import '../models/questao.dart';
+import '../services/questao_service.dart';
 import 'questao_form_screen.dart';
 
 const dificuldades = ['Fácil', 'Médio', 'Difícil'];
 
 class BancoQuestoesScreen extends StatefulWidget {
-  const BancoQuestoesScreen({super.key});
+  final QuestaoService? questaoService;
+
+  const BancoQuestoesScreen({super.key, this.questaoService});
 
   @override
   State<BancoQuestoesScreen> createState() => _BancoQuestoesScreenState();
 }
 
 class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
+  late final QuestaoService questaoService;
+  StreamSubscription<List<Questao>>? assinatura;
+
+  List<Questao> questoes = [];
+  bool carregando = true;
+  Object? erro;
+
   String dificuldadeFiltro = 'Todas';
   String assuntoFiltro = 'Todos';
   String? questaoAberta;
 
+  @override
+  void initState() {
+    super.initState();
+    questaoService = widget.questaoService ?? QuestaoService();
+    escutarQuestoes();
+  }
+
+  @override
+  void dispose() {
+    assinatura?.cancel();
+    super.dispose();
+  }
+
+  void escutarQuestoes() {
+    assinatura?.cancel();
+
+    assinatura = questaoService.monitorarQuestoes().listen(
+      (lista) {
+        setState(() {
+          questoes = lista;
+          carregando = false;
+
+          if (!assuntos.contains(assuntoFiltro)) {
+            assuntoFiltro = 'Todos';
+          }
+        });
+      },
+      onError: (Object e) {
+        setState(() {
+          erro = e;
+          carregando = false;
+        });
+      },
+      onDone: () {
+        if (mounted && carregando) {
+          setState(() => carregando = false);
+        }
+      },
+    );
+  }
+
   List<String> get assuntos {
     final lista = <String>['Todos'];
 
-    for (final questao in questoesMock) {
+    for (final questao in questoes) {
       if (!lista.contains(questao.assunto)) {
         lista.add(questao.assunto);
       }
@@ -41,32 +93,26 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
   }
 
   List<Questao> get questoesFiltradas {
-    return questoesMock.where(passaNoFiltro).toList();
+    return questoes.where(passaNoFiltro).toList();
   }
 
   Future<void> abrirFormulario({Questao? questao}) async {
     final salva = await Navigator.push<Questao>(
       context,
       MaterialPageRoute(
-        builder: (context) => QuestaoFormScreen(questao: questao),
+        builder: (context) => QuestaoFormScreen(
+          questao: questao,
+          questaoService: questaoService,
+          assuntosExistentes: assuntos.skip(1).toList(),
+        ),
       ),
     );
 
-    if (salva == null) {
+    if (salva == null || !mounted) {
       return;
     }
 
     setState(() {
-      final indice = questoesMock.indexWhere(
-        (item) => item.id == salva.id,
-      );
-
-      if (indice == -1) {
-        questoesMock.add(salva);
-      } else {
-        questoesMock[indice] = salva;
-      }
-
       if (!passaNoFiltro(salva)) {
         dificuldadeFiltro = 'Todas';
         assuntoFiltro = 'Todos';
@@ -149,19 +195,30 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
       return;
     }
 
-    setState(() {
-      questoesMock.removeWhere((item) => item.id == questao.id);
-
-      if (!assuntos.contains(assuntoFiltro)) {
-        assuntoFiltro = 'Todos';
+    try {
+      await questaoService.excluirQuestao(questao.id);
+    } catch (e) {
+      if (!mounted) {
+        return;
       }
 
-      questaoAberta = null;
-    });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível excluir a questão: $e'),
+          backgroundColor: const Color(0xFFD32F2F),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     if (!mounted) {
       return;
     }
+
+    setState(() {
+      questaoAberta = null;
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -170,10 +227,169 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
     );
   }
 
+  Widget buildConteudo() {
+    if (carregando) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF6545E8),
+        ),
+      );
+    }
+
+    if (erro != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: Color(0xFFE53935),
+              ),
+
+              const SizedBox(height: 12),
+
+              const Text(
+                'Não foi possível carregar as questões.',
+
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              Text(
+                '$erro',
+                textAlign: TextAlign.center,
+
+                style: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    carregando = true;
+                    erro = null;
+                  });
+
+                  escutarQuestoes();
+                },
+
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6545E8),
+                  foregroundColor: Colors.white,
+                ),
+
+                child: const Text('Tentar novamente'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (questoes.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+
+            children: [
+              Icon(
+                Icons.quiz_outlined,
+                size: 48,
+                color: Color(0xFF94A3B8),
+              ),
+
+              SizedBox(height: 12),
+
+              Text(
+                'Nenhuma questão cadastrada',
+
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+
+              SizedBox(height: 6),
+
+              Text(
+                'Toque em "+ Adicionar" para criar a primeira questão.',
+                textAlign: TextAlign.center,
+
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final filtradas = questoesFiltradas;
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+      itemCount: filtradas.length + 1,
+
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
+
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          final total = filtradas.length;
+
+          return Text(
+            total == 1
+                ? '1 questão encontrada'
+                : '$total questões encontradas',
+
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 13,
+            ),
+          );
+        }
+
+        final questao = filtradas[index - 1];
+
+        return QuestaoCard(
+          questao: questao,
+          numero: index,
+          aberta: questaoAberta == questao.id,
+
+          onToggle: () {
+            setState(() {
+              questaoAberta = questaoAberta == questao.id ? null : questao.id;
+            });
+          },
+
+          onEditar: () => abrirFormulario(questao: questao),
+          onExcluir: () => excluirQuestao(questao),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final questoes = questoesFiltradas;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
 
@@ -185,27 +401,13 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
           color: Color(0xFF6545E8),
         ),
 
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Banco de Questões',
-              style: TextStyle(
-                color: Color(0xFF111827),
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            Text(
-              'Modo demonstrativo',
-              style: TextStyle(
-                color: Color(0xFF6545E8),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        title: const Text(
+          'Banco de Questões',
+          style: TextStyle(
+            color: Color(0xFF111827),
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
         ),
 
         actions: [
@@ -318,47 +520,7 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
           ),
 
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
-              itemCount: questoes.length + 1,
-
-              separatorBuilder: (context, index) => const SizedBox(height: 10),
-
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  final total = questoes.length;
-
-                  return Text(
-                    total == 1
-                        ? '1 questão encontrada'
-                        : '$total questões encontradas',
-
-                    style: const TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 13,
-                    ),
-                  );
-                }
-
-                final questao = questoes[index - 1];
-
-                return QuestaoCard(
-                  questao: questao,
-                  numero: index,
-                  aberta: questaoAberta == questao.id,
-
-                  onToggle: () {
-                    setState(() {
-                      questaoAberta =
-                          questaoAberta == questao.id ? null : questao.id;
-                    });
-                  },
-
-                  onEditar: () => abrirFormulario(questao: questao),
-                  onExcluir: () => excluirQuestao(questao),
-                );
-              },
-            ),
+            child: buildConteudo(),
           ),
         ],
       ),

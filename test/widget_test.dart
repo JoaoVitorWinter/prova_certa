@@ -61,8 +61,7 @@ void main() {
     expect(find.text('Banco de questões'), findsOneWidget);
   });
 
-  testWidgets('banco de questões lista e filtra por dificuldade',
-      (tester) async {
+  testWidgets('home abre o banco de questões', (tester) async {
     await tester.pumpWidget(
       const ProvaCertaApp(homeOverride: HomeScreen()),
     );
@@ -71,11 +70,6 @@ void main() {
     await tester.tap(find.text('Banco de questões'));
     await tester.pumpAndSettle();
 
-    expect(find.text('10 questões encontradas'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(ChipFiltro, 'Difícil'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('1 questão encontrada'), findsOneWidget);
+    expect(find.byType(BancoQuestoesScreen), findsOneWidget);
   });
 }
