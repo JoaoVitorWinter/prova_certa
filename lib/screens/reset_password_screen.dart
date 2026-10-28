@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../utils/validadores.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final AuthService? authService;
@@ -12,9 +15,22 @@ class ResetPasswordScreen extends StatefulWidget {
 }
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+  static const _intervaloReenvio = 60;
+
   final _emailController = TextEditingController();
+  final _codigoController = TextEditingController();
+  final _senhaController = TextEditingController();
+  final _confirmarSenhaController = TextEditingController();
   late final AuthService _authService;
+  Timer? _timerReenvio;
+
+  int _etapa = 0;
   bool _loading = false;
+  bool _ocultarSenha = true;
+  bool _ocultarConfirmarSenha = true;
+  int _segundosParaReenvio = 0;
+  String? _codigoValidado;
+  String? _emailDaConta;
 
   @override
   void initState() {
@@ -24,7 +40,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   void dispose() {
+    _timerReenvio?.cancel();
     _emailController.dispose();
+    _codigoController.dispose();
+    _senhaController.dispose();
+    _confirmarSenhaController.dispose();
     super.dispose();
   }
 
@@ -36,13 +56,43 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       return false;
     }
 
-    final emailValido = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email);
-    if (!emailValido) {
-      _mostrarMensagem('Informe um formato de e-mail válido.', isError: true);
+    final erro = Validadores.email(email);
+    if (erro != null) {
+      _mostrarMensagem(erro, isError: true);
       return false;
     }
 
     return true;
+  }
+
+  void _iniciarContagemReenvio() {
+    _timerReenvio?.cancel();
+    setState(() => _segundosParaReenvio = _intervaloReenvio);
+    _timerReenvio = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _segundosParaReenvio <= 1) {
+        timer.cancel();
+        if (mounted) setState(() => _segundosParaReenvio = 0);
+        return;
+      }
+      setState(() => _segundosParaReenvio--);
+    });
+  }
+
+  void _voltar() {
+    if (_loading) return;
+    if (_etapa == 0) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() {
+      if (_etapa == 2) {
+        _codigoValidado = null;
+        _emailDaConta = null;
+        _senhaController.clear();
+        _confirmarSenhaController.clear();
+      }
+      _etapa--;
+    });
   }
 
   void _mostrarMensagem(String mensagem, {bool isError = false}) {
@@ -59,7 +109,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Future<void> _enviarEmailRecuperacao() async {
     FocusScope.of(context).unfocus();
 
-    if (_loading || !_validarEmail()) {
+    if (_loading || _segundosParaReenvio > 0 || !_validarEmail()) {
       return;
     }
 
@@ -71,8 +121,79 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
       if (mounted) {
         _mostrarMensagem(
-          'E-mail de recuperação enviado para $email! Verifique sua caixa de entrada.',
+          'Se houver uma conta com $email, o e-mail de recuperação chegará em instantes.',
         );
+        setState(() => _etapa = 1);
+        _iniciarContagemReenvio();
+      }
+    } catch (e) {
+      if (mounted) {
+        _mostrarMensagem(e.toString(), isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _validarCodigo() async {
+    FocusScope.of(context).unfocus();
+    if (_loading) return;
+
+    final erro = Validadores.codigoRedefinicao(_codigoController.text);
+    if (erro != null) {
+      _mostrarMensagem(erro, isError: true);
+      return;
+    }
+
+    final codigo =
+        Validadores.extrairCodigoRedefinicao(_codigoController.text)!;
+
+    setState(() => _loading = true);
+
+    try {
+      final email = await _authService.verificarCodigoRedefinicao(codigo);
+      if (mounted) {
+        setState(() {
+          _codigoValidado = codigo;
+          _emailDaConta = email;
+          _etapa = 2;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        _mostrarMensagem(e.toString(), isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _redefinirSenha() async {
+    FocusScope.of(context).unfocus();
+    final codigo = _codigoValidado;
+    if (_loading || codigo == null) return;
+
+    final senha = _senhaController.text;
+    final erro = Validadores.novaSenha(senha) ??
+        Validadores.confirmacaoSenha(senha, _confirmarSenhaController.text);
+    if (erro != null) {
+      _mostrarMensagem(erro, isError: true);
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      await _authService.confirmarRedefinicaoSenha(
+        codigo: codigo,
+        novaSenha: senha,
+      );
+      if (mounted) {
+        _mostrarMensagem('Senha redefinida com sucesso! Entre com a nova senha.');
         Navigator.pop(context);
       }
     } catch (e) {
@@ -86,6 +207,209 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     }
   }
 
+  Widget _botaoPrincipal({
+    required String rotulo,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      height: 55,
+      child: ElevatedButton(
+        onPressed: _loading ? null : onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF713CEB),
+          foregroundColor: Colors.white,
+          elevation: 3,
+          disabledBackgroundColor:
+              const Color(0xFF713CEB).withValues(alpha: 0.6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(17),
+          ),
+        ),
+        child: _loading
+            ? const SizedBox(
+                height: 22,
+                width: 22,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : Text(
+                rotulo,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _botaoSecundario(String rotulo, VoidCallback? onPressed) {
+    return TextButton(
+      onPressed: _loading ? null : onPressed,
+      child: Text(
+        rotulo,
+        style: const TextStyle(
+          color: Color(0xFF6438EF),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _toggleSenha(bool ocultar, VoidCallback onToggle) {
+    return IconButton(
+      onPressed: onToggle,
+      icon: Icon(
+        ocultar ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        color: const Color(0xFF91A1B8),
+        size: 20,
+      ),
+    );
+  }
+
+  List<Widget> _etapaEmail() {
+    return [
+      const _FieldLabel('E-MAIL INSTITUCIONAL'),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _emailController,
+        keyboardType: TextInputType.emailAddress,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _enviarEmailRecuperacao(),
+        enabled: !_loading,
+        decoration: _inputDecoration(hintText: 'seuemail@email.com.br'),
+      ),
+      const SizedBox(height: 24),
+      _botaoPrincipal(
+        rotulo: 'Enviar e-mail de recuperação',
+        onPressed: _enviarEmailRecuperacao,
+      ),
+      const SizedBox(height: 12),
+      _botaoSecundario(
+        'Já recebi o e-mail',
+        () => setState(() => _etapa = 1),
+      ),
+      _botaoSecundario('Voltar para o login', () => Navigator.pop(context)),
+    ];
+  }
+
+  List<Widget> _etapaCodigo() {
+    return [
+      const _FieldLabel('LINK OU CÓDIGO DE RECUPERAÇÃO'),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _codigoController,
+        keyboardType: TextInputType.url,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _validarCodigo(),
+        enabled: !_loading,
+        minLines: 1,
+        maxLines: 3,
+        decoration: _inputDecoration(
+          hintText: 'Cole aqui o link recebido por e-mail',
+        ),
+      ),
+      const SizedBox(height: 24),
+      _botaoPrincipal(rotulo: 'Validar código', onPressed: _validarCodigo),
+      const SizedBox(height: 12),
+      _botaoSecundario(
+        _segundosParaReenvio > 0
+            ? 'Reenviar e-mail em ${_segundosParaReenvio}s'
+            : 'Reenviar e-mail',
+        _segundosParaReenvio > 0
+            ? null
+            : () {
+                if (_emailController.text.trim().isEmpty) {
+                  setState(() => _etapa = 0);
+                  return;
+                }
+                _enviarEmailRecuperacao();
+              },
+      ),
+      _botaoSecundario('Voltar', _voltar),
+    ];
+  }
+
+  List<Widget> _etapaNovaSenha() {
+    return [
+      const _FieldLabel('NOVA SENHA'),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _senhaController,
+        obscureText: _ocultarSenha,
+        textInputAction: TextInputAction.next,
+        enabled: !_loading,
+        decoration: _inputDecoration(
+          hintText: 'Mínimo de 8 caracteres, com letras e números',
+          suffixIcon: _toggleSenha(
+            _ocultarSenha,
+            () => setState(() => _ocultarSenha = !_ocultarSenha),
+          ),
+        ),
+      ),
+      const SizedBox(height: 16),
+      const _FieldLabel('CONFIRMAR NOVA SENHA'),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _confirmarSenhaController,
+        obscureText: _ocultarConfirmarSenha,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _redefinirSenha(),
+        enabled: !_loading,
+        decoration: _inputDecoration(
+          hintText: 'Repita a nova senha',
+          suffixIcon: _toggleSenha(
+            _ocultarConfirmarSenha,
+            () => setState(
+              () => _ocultarConfirmarSenha = !_ocultarConfirmarSenha,
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: 24),
+      _botaoPrincipal(rotulo: 'Redefinir senha', onPressed: _redefinirSenha),
+      const SizedBox(height: 12),
+      _botaoSecundario('Voltar', _voltar),
+    ];
+  }
+
+  String get _titulo {
+    switch (_etapa) {
+      case 1:
+        return 'Verifique seu e-mail';
+      case 2:
+        return 'Crie uma nova senha';
+      default:
+        return 'Recuperar acesso';
+    }
+  }
+
+  String get _descricao {
+    switch (_etapa) {
+      case 1:
+        return 'Abra o e-mail de recuperação e toque no link, ou copie o link '
+            'e cole abaixo para continuar por aqui. O link expira em 1 hora.';
+      case 2:
+        return 'Defina a nova senha da conta ${_emailDaConta ?? ''}.';
+      default:
+        return 'Informe seu e-mail institucional cadastrado. Enviaremos um '
+            'link seguro para você redefinir sua senha.';
+    }
+  }
+
+  IconData get _icone {
+    switch (_etapa) {
+      case 1:
+        return Icons.mark_email_unread_rounded;
+      case 2:
+        return Icons.password_rounded;
+      default:
+        return Icons.lock_reset_rounded;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -96,7 +420,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _voltar,
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19),
           color: const Color(0xFF111827),
         ),
@@ -141,90 +465,37 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.lock_reset_rounded,
+                      child: Icon(
+                        _icone,
                         color: Colors.white,
                         size: 35,
                       ),
                     ),
                   ),
                   const SizedBox(height: 22),
-                  const Text(
-                    'Recuperar acesso',
+                  Text(
+                    _titulo,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Color(0xFF111827),
                       fontSize: 23,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Informe seu e-mail institucional cadastrado. Enviaremos um link seguro para você redefinir sua senha.',
+                  Text(
+                    _descricao,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Color(0xFF64748B),
                       fontSize: 13,
                       height: 1.45,
                     ),
                   ),
                   const SizedBox(height: 28),
-                  const _FieldLabel('E-MAIL INSTITUCIONAL'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _enviarEmailRecuperacao(),
-                    enabled: !_loading,
-                    decoration: _inputDecoration(
-                      hintText: 'seuemail@email.com.br',
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _enviarEmailRecuperacao,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF713CEB),
-                        foregroundColor: Colors.white,
-                        elevation: 3,
-                        disabledBackgroundColor:
-                            const Color(0xFF713CEB).withValues(alpha: 0.6),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(17),
-                        ),
-                      ),
-                      child: _loading
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
-                              ),
-                            )
-                          : const Text(
-                              'Enviar e-mail de recuperação',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: _loading ? null : () => Navigator.pop(context),
-                    child: const Text(
-                      'Voltar para o login',
-                      style: TextStyle(
-                        color: Color(0xFF6438EF),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                  if (_etapa == 0) ..._etapaEmail(),
+                  if (_etapa == 1) ..._etapaCodigo(),
+                  if (_etapa == 2) ..._etapaNovaSenha(),
                 ],
               ),
             ),

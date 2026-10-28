@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/usuario.dart';
 import '../services/auth_service.dart';
+import '../utils/validadores.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final AuthService? authService;
@@ -101,11 +102,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     FocusScope.of(context).unfocus();
 
     final nome = _nomeController.text.trim();
-    if (nome.isEmpty) {
+    final erro = Validadores.nomeCompleto(nome) ??
+        Validadores.instituicao(_escolaController.text, obrigatoria: false);
+    if (erro != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Informe o nome completo.'),
-          backgroundColor: Color(0xFFE53935),
+        SnackBar(
+          content: Text(erro),
+          backgroundColor: const Color(0xFFE53935),
           behavior: SnackBarBehavior.floating,
         ),
       );
