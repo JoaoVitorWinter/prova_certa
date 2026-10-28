@@ -2,24 +2,25 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../mocks/questoes_mock.dart';
 import '../models/prova.dart';
 import '../models/questao.dart';
 import '../models/turma.dart';
 import '../services/prova_service.dart';
+import '../services/questao_service.dart';
 import '../services/turma_service.dart';
+import 'banco_questoes_screen.dart';
 import 'provas_screen.dart';
 
 class NovaProvaScreen extends StatefulWidget {
   final ProvaService? provaService;
   final TurmaService? turmaService;
-  final List<Questao>? questoesDisponiveis;
+  final QuestaoService? questaoService;
 
   const NovaProvaScreen({
     super.key,
     this.provaService,
     this.turmaService,
-    this.questoesDisponiveis,
+    this.questaoService,
   });
 
   @override
@@ -29,7 +30,13 @@ class NovaProvaScreen extends StatefulWidget {
 class _NovaProvaScreenState extends State<NovaProvaScreen> {
   late final ProvaService _provaService;
   late final TurmaService _turmaService;
+  late final QuestaoService _questaoService;
   StreamSubscription<List<Turma>>? _turmasSub;
+  StreamSubscription<List<Questao>>? _questoesSub;
+
+  List<Questao> _questoesDisponiveis = [];
+  bool _carregandoQuestoes = true;
+  Object? _erroQuestoes;
 
   int _etapa = 0;
   String _nome = '';
@@ -43,9 +50,6 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
   int _numeroVersoes = 1;
   final List<String> _questoesSelecionadas = [];
   bool _salvando = false;
-
-  List<Questao> get _questoesDisponiveis =>
-      widget.questoesDisponiveis ?? questoesMock;
 
   List<Questao> get _questoesEscolhidas => [
     for (final id in _questoesSelecionadas)
@@ -89,12 +93,60 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
         }
       },
     );
+    _questaoService = widget.questaoService ?? QuestaoService();
+    _escutarQuestoes();
   }
 
   @override
   void dispose() {
     _turmasSub?.cancel();
+    _questoesSub?.cancel();
     super.dispose();
+  }
+
+  void _escutarQuestoes() {
+    _questoesSub?.cancel();
+    _questoesSub = _questaoService.monitorarQuestoes().listen(
+      (questoes) {
+        setState(() {
+          _questoesDisponiveis = questoes;
+          _carregandoQuestoes = false;
+          _erroQuestoes = null;
+          _questoesSelecionadas.removeWhere(
+            (id) => !questoes.any((questao) => questao.id == id),
+          );
+        });
+      },
+      onError: (Object e) {
+        setState(() {
+          _erroQuestoes = e;
+          _carregandoQuestoes = false;
+        });
+      },
+      onDone: () {
+        if (mounted && _carregandoQuestoes) {
+          setState(() => _carregandoQuestoes = false);
+        }
+      },
+    );
+  }
+
+  void _tentarCarregarQuestoes() {
+    setState(() {
+      _carregandoQuestoes = true;
+      _erroQuestoes = null;
+    });
+    _escutarQuestoes();
+  }
+
+  void _abrirBancoQuestoes() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            BancoQuestoesScreen(questaoService: _questaoService),
+      ),
+    );
   }
 
   void _alterarQuantidade(int quantidade) {
@@ -231,9 +283,13 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
                   ),
                   _QuestoesStep(
                     questoes: _questoesDisponiveis,
+                    carregando: _carregandoQuestoes,
+                    erro: _erroQuestoes,
                     selecionadas: _questoesSelecionadas,
                     limite: _quantidadeQuestoes,
                     onToggle: _alternarQuestao,
+                    onTentarNovamente: _tentarCarregarQuestoes,
+                    onAbrirBanco: _abrirBancoQuestoes,
                   ),
                   _GerarStep(
                     nome: _nome,
@@ -516,19 +572,103 @@ class _DadosStep extends StatelessWidget {
 
 class _QuestoesStep extends StatelessWidget {
   final List<Questao> questoes;
+  final bool carregando;
+  final Object? erro;
   final List<String> selecionadas;
   final int limite;
   final ValueChanged<Questao> onToggle;
+  final VoidCallback onTentarNovamente;
+  final VoidCallback onAbrirBanco;
 
   const _QuestoesStep({
     required this.questoes,
+    required this.carregando,
+    required this.erro,
     required this.selecionadas,
     required this.limite,
     required this.onToggle,
+    required this.onTentarNovamente,
+    required this.onAbrirBanco,
   });
 
+  Widget _aviso({
+    required IconData icone,
+    required Color cor,
+    required String titulo,
+    required String mensagem,
+    required String acao,
+    required VoidCallback onAcao,
+  }) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icone, size: 48, color: cor),
+          const SizedBox(height: 12),
+          Text(
+            titulo,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF101827),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            mensagem,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFF91A0B5), fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onAcao,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5547EA),
+              foregroundColor: Colors.white,
+            ),
+            child: Text(acao),
+          ),
+        ],
+      ),
+    ),
+  );
+
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) {
+    if (carregando) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF5547EA)),
+      );
+    }
+
+    if (erro != null) {
+      return _aviso(
+        icone: Icons.error_outline_rounded,
+        cor: const Color(0xFFE53935),
+        titulo: 'Não foi possível carregar as questões.',
+        mensagem: '$erro',
+        acao: 'Tentar novamente',
+        onAcao: onTentarNovamente,
+      );
+    }
+
+    if (questoes.isEmpty) {
+      return _aviso(
+        icone: Icons.quiz_outlined,
+        cor: const Color(0xFF91A0B5),
+        titulo: 'Nenhuma questão no banco',
+        mensagem: 'Cadastre questões no banco para incluí-las na prova.',
+        acao: 'Abrir banco de questões',
+        onAcao: onAbrirBanco,
+      );
+    }
+
+    return _lista();
+  }
+
+  Widget _lista() => ListView(
     padding: const EdgeInsets.fromLTRB(22, 17, 22, 25),
     children: [
       Text(
@@ -541,15 +681,35 @@ class _QuestoesStep extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 4),
-      Text(
-        '${selecionadas.length} de $limite questões selecionadas',
-        style: const TextStyle(color: Color(0xFF91A0B5), fontSize: 11),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${selecionadas.length} de $limite questões selecionadas',
+              style: const TextStyle(color: Color(0xFF91A0B5), fontSize: 11),
+            ),
+          ),
+          TextButton(
+            onPressed: onAbrirBanco,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF5146EE),
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 32),
+            ),
+            child: const Text(
+              'Gerenciar banco',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 8),
       for (var index = 0; index < questoes.length; index++) ...[
         _QuestionCard(
           question: questoes[index],
-          selected: selecionadas.contains(questoes[index].id),
+          ordem: selecionadas.contains(questoes[index].id)
+              ? selecionadas.indexOf(questoes[index].id) + 1
+              : null,
           onTap: () => onToggle(questoes[index]),
         ),
         if (index < questoes.length - 1) const SizedBox(height: 10),
@@ -560,14 +720,16 @@ class _QuestoesStep extends StatelessWidget {
 
 class _QuestionCard extends StatelessWidget {
   final Questao question;
-  final bool selected;
+  final int? ordem;
   final VoidCallback onTap;
 
   const _QuestionCard({
     required this.question,
-    required this.selected,
+    required this.ordem,
     required this.onTap,
   });
+
+  bool get selected => ordem != null;
 
   @override
   Widget build(BuildContext context) => InkWell(
@@ -593,6 +755,7 @@ class _QuestionCard extends StatelessWidget {
             width: 19,
             height: 19,
             margin: const EdgeInsets.only(top: 2),
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: selected
                   ? const Color(0xFF5547EA)
@@ -605,7 +768,14 @@ class _QuestionCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(5),
             ),
             child: selected
-                ? const Icon(Icons.check, color: Colors.white, size: 14)
+                ? Text(
+                    '$ordem',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
                 : null,
           ),
           const SizedBox(width: 12),
