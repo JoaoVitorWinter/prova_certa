@@ -416,7 +416,8 @@ void main() {
       // BancoQuestoesScreen
       await tester.pumpWidget(const MaterialApp(home: BancoQuestoesScreen()));
       await tester.pumpAndSettle();
-      expect(find.text('Modo demonstrativo'), findsOneWidget);
+      expect(find.text('Modo demonstrativo'), findsNothing);
+      expect(find.text('Nenhuma questão cadastrada'), findsOneWidget);
 
       // CorrigirProvaScreen
       await tester.pumpWidget(const MaterialApp(home: CorrigirProvaScreen()));
