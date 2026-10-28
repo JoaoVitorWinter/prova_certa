@@ -16,7 +16,6 @@ import 'package:prova_certa/services/auth_service.dart';
 import 'resultados_test.dart';
 import 'turmas_alunos_test.dart';
 
-/// Valor exibido na métrica do cabeçalho da Home com o rótulo informado.
 String valorMetrica(WidgetTester tester, String rotulo) {
   final metrica = find
       .ancestor(of: find.text(rotulo), matching: find.byType(Column))
@@ -110,12 +109,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Confirma que NÃO exibe os dados mockados antigos
       expect(find.text('Prof. Ana Paula'), findsNothing);
       expect(find.text('E.E. Prof. Antônio Lemos'), findsNothing);
       expect(find.text('AP'), findsNothing);
 
-      // Confirma que exibe os dados reais do professor
       expect(find.text('Carlos Drummond'), findsOneWidget);
       expect(find.text('Colégio Estadual Central'), findsOneWidget);
       expect(find.text('CD'), findsOneWidget);
@@ -145,11 +142,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Inicialmente não há turmas: alunos deve ser 0 (NÃO 145)
       expect(find.text('145'), findsNothing);
       expect(valorMetrica(tester, 'Alunos'), '0');
 
-      // Cria Turma 1 e cadastra 2 alunos
       final t1 = await fakeTurma.criarTurma(
         nome: '1º Ano A',
         ano: '1º Ano',
@@ -168,10 +163,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Agora deve exibir 2 alunos
       expect(find.text('2'), findsOneWidget);
 
-      // Cria Turma 2 e importa 3 alunos via lote
       final t2 = await fakeTurma.criarTurma(
         nome: '2º Ano B',
         ano: '2º Ano',
@@ -188,7 +181,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Agora o total de alunos na home deve ser 5 (2 + 3)
       expect(find.text('5'), findsOneWidget);
       expect(find.text('145'), findsNothing);
     });
@@ -209,7 +201,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Sem correções salvas, as métricas ficam zeradas (nada de números fixos)
       expect(find.text('Provas (demo)'), findsNothing);
       expect(find.text('Corrigidas (demo)'), findsNothing);
       expect(valorMetrica(tester, 'Provas corrigidas'), '0');
@@ -255,19 +246,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Não exibe os dados mockados de Ana Paula
       expect(find.text('Prof. Ana Paula Santos'), findsNothing);
       expect(find.text('ana.santos@escola.edu.br'), findsNothing);
       expect(find.text('E.E. Prof. Antônio Lemos'), findsNothing);
       expect(find.text('AP'), findsNothing);
 
-      // Exibe os dados reais de Maria Quitéria
       expect(find.text('Maria Quitéria'), findsOneWidget);
       expect(find.text('maria.quiteria@escola.gov.br'), findsOneWidget);
       expect(find.text('Instituto Histórico'), findsOneWidget);
       expect(find.text('MQ'), findsOneWidget);
 
-      // Contador de turmas exibe 2
       expect(find.text('2'), findsOneWidget);
     });
 
@@ -294,27 +282,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verifica iniciais dinâmicas iniciais: CL
       expect(find.text('CL'), findsOneWidget);
 
-      // Altera o nome
       final nomeField = find.widgetWithText(TextField, 'Clarice Lispector');
       await tester.enterText(nomeField, 'Clarice Lispector Souza');
       await tester.pumpAndSettle();
 
-      // Iniciais atualizadas dinamicamente: CS
       expect(find.text('CS'), findsOneWidget);
 
-      // Altera a instituição
       final escolaField = find.widgetWithText(TextField, 'Faculdade de Letras');
       await tester.enterText(escolaField, 'Universidade Nova');
       await tester.pumpAndSettle();
 
-      // Salva
       await tester.tap(find.text('Salvar alterações'));
       await tester.pumpAndSettle();
 
-      // Verifica no serviço que foi atualizado
       final perfilAtualizado = await fakeAuth.buscarPerfil('prof_789');
       expect(perfilAtualizado?.nome, equals('Clarice Lispector Souza'));
       expect(perfilAtualizado?.instituicao, equals('Universidade Nova'));
@@ -350,7 +332,6 @@ void main() {
         ),
       );
 
-      // Renderiza Home para Professor A
       await tester.pumpWidget(
         MaterialApp(
           home: HomeScreen(
@@ -365,7 +346,6 @@ void main() {
       expect(find.text('PA'), findsOneWidget);
       expect(find.text('2'), findsOneWidget);
 
-      // Simula Logout e Login com Professor B
       fakeAuth.definirUsuario(
         Usuario(
           id: 'user_B',
@@ -386,12 +366,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Garante que NENHUM dado do Professor A aparece para a Professora B
       expect(find.text('Professor A'), findsNothing);
       expect(find.text('PA'), findsNothing);
       expect(find.text('2'), findsNothing);
 
-      // Dados da Professora B
       expect(find.text('Professora B'), findsOneWidget);
       expect(find.text('PB'), findsOneWidget);
       expect(valorMetrica(tester, 'Alunos'), '0');
@@ -400,12 +378,11 @@ void main() {
     testWidgets(
         '7. Telas demonstrativas (Provas, Resultados, Questões, Correção) exibem identificação visual',
         (tester) async {
-      // ProvasScreen
       await tester.pumpWidget(const MaterialApp(home: ProvasScreen()));
       await tester.pumpAndSettle();
-      expect(find.text('Demonstrativo'), findsOneWidget);
+      expect(find.text('Demonstrativo'), findsNothing);
+      expect(find.text('Nenhuma prova criada'), findsOneWidget);
 
-      // ResultadosScreen agora usa dados reais: sem correções, mostra estado vazio
       await tester.pumpWidget(
         MaterialApp(home: ResultadosScreen(resultadoService: FakeResultadoService())),
       );
@@ -413,13 +390,11 @@ void main() {
       expect(find.text('Modo demonstrativo'), findsNothing);
       expect(find.text('Nenhuma prova corrigida ainda'), findsOneWidget);
 
-      // BancoQuestoesScreen
       await tester.pumpWidget(const MaterialApp(home: BancoQuestoesScreen()));
       await tester.pumpAndSettle();
       expect(find.text('Modo demonstrativo'), findsNothing);
       expect(find.text('Nenhuma questão cadastrada'), findsOneWidget);
 
-      // CorrigirProvaScreen
       await tester.pumpWidget(const MaterialApp(home: CorrigirProvaScreen()));
       await tester.pumpAndSettle();
       expect(find.text('Demonstrativo'), findsOneWidget);

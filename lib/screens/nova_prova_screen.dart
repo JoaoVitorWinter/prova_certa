@@ -2,34 +2,197 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../mocks/questoes_mock.dart';
+import '../models/prova.dart';
+import '../models/questao.dart';
+import '../models/turma.dart';
+import '../services/prova_service.dart';
+import '../services/turma_service.dart';
 import 'provas_screen.dart';
 
 class NovaProvaScreen extends StatefulWidget {
-  const NovaProvaScreen({super.key});
+  final ProvaService? provaService;
+  final TurmaService? turmaService;
+  final List<Questao>? questoesDisponiveis;
+
+  const NovaProvaScreen({
+    super.key,
+    this.provaService,
+    this.turmaService,
+    this.questoesDisponiveis,
+  });
 
   @override
   State<NovaProvaScreen> createState() => _NovaProvaScreenState();
 }
 
 class _NovaProvaScreenState extends State<NovaProvaScreen> {
+  late final ProvaService _provaService;
+  late final TurmaService _turmaService;
+  StreamSubscription<List<Turma>>? _turmasSub;
+
   int _etapa = 0;
   String _nome = '';
+  List<Turma> _turmas = [];
+  bool _carregandoTurmas = true;
+  Turma? _turma;
+  DateTime _dataAplicacao = DateUtils.dateOnly(DateTime.now());
   int _quantidadeQuestoes = 10;
   bool _embaralharQuestoes = false;
   bool _embaralharAlternativas = false;
   int _numeroVersoes = 1;
-  final Set<int> _questoesSelecionadas = {};
+  final List<String> _questoesSelecionadas = [];
+  bool _salvando = false;
+
+  List<Questao> get _questoesDisponiveis =>
+      widget.questoesDisponiveis ?? questoesMock;
+
+  List<Questao> get _questoesEscolhidas => [
+    for (final id in _questoesSelecionadas)
+      ..._questoesDisponiveis.where((questao) => questao.id == id),
+  ];
+
+  bool get _etapaValida {
+    switch (_etapa) {
+      case 0:
+        return _nome.trim().isNotEmpty && _turma != null;
+      case 1:
+        return _questoesSelecionadas.isNotEmpty;
+      default:
+        return _nome.trim().isNotEmpty &&
+            _turma != null &&
+            _questoesSelecionadas.isNotEmpty;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _provaService = widget.provaService ?? ProvaService();
+    _turmaService = widget.turmaService ?? TurmaService();
+    _turmasSub = _turmaService.monitorarTurmas().listen(
+      (turmas) {
+        setState(() {
+          _turmas = turmas;
+          _carregandoTurmas = false;
+          if (_turma != null && !turmas.any((t) => t.id == _turma!.id)) {
+            _turma = null;
+          }
+        });
+      },
+      onError: (Object _) {
+        setState(() => _carregandoTurmas = false);
+      },
+      onDone: () {
+        if (mounted && _carregandoTurmas) {
+          setState(() => _carregandoTurmas = false);
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _turmasSub?.cancel();
+    super.dispose();
+  }
+
+  void _alterarQuantidade(int quantidade) {
+    setState(() {
+      _quantidadeQuestoes = quantidade;
+      if (_questoesSelecionadas.length > quantidade) {
+        _questoesSelecionadas.removeRange(
+          quantidade,
+          _questoesSelecionadas.length,
+        );
+      }
+    });
+  }
+
+  void _alternarQuestao(Questao questao) {
+    if (_questoesSelecionadas.contains(questao.id)) {
+      setState(() => _questoesSelecionadas.remove(questao.id));
+      return;
+    }
+
+    if (_questoesSelecionadas.length >= _quantidadeQuestoes) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Limite de $_quantidadeQuestoes questões atingido.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _questoesSelecionadas.add(questao.id));
+  }
 
   void _avancar() {
+    if (!_etapaValida) return;
+
     if (_etapa < 2) {
       setState(() => _etapa++);
       return;
     }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const _CriandoProvaScreen()),
-    );
+    _salvar(ProvaStatus.ativa);
+  }
+
+  Future<void> _salvar(ProvaStatus status) async {
+    final turma = _turma;
+    if (turma == null || _salvando || !_etapaValida) return;
+
+    final questoes = _questoesEscolhidas;
+
+    setState(() => _salvando = true);
+
+    try {
+      await _provaService.criarProva(
+        Prova(
+          id: '',
+          nome: _nome.trim(),
+          turma: turma,
+          dataAplicacao: _dataAplicacao,
+          quantidadeQuestoes: questoes.length,
+          questoes: questoes,
+          status: status,
+          embaralharQuestoes: _embaralharQuestoes,
+          embaralharAlternativas: _embaralharAlternativas,
+          numeroVersoes: _numeroVersoes,
+          gabaritoOficial: questoes.map((questao) => questao.correta).toList(),
+        ),
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => _CriandoProvaScreen(
+            quantidadeQuestoes: questoes.length,
+            rascunho: status == ProvaStatus.rascunho,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      final mensagem = e is ArgumentError
+          ? '${e.message}'
+          : e.toString().replaceFirst('Exception: ', '');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(mensagem),
+          backgroundColor: const Color(0xFFD32F2F),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _salvando = false);
+      }
+    }
   }
 
   void _voltar() {
@@ -55,24 +218,27 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
                 children: [
                   _DadosStep(
                     nome: _nome,
+                    turmas: _turmas,
+                    carregandoTurmas: _carregandoTurmas,
+                    turma: _turma,
+                    dataAplicacao: _dataAplicacao,
                     quantidadeQuestoes: _quantidadeQuestoes,
-                    onNameChanged: (value) => _nome = value,
-                    onQuantityChanged: (value) =>
-                        setState(() => _quantidadeQuestoes = value),
+                    onNameChanged: (value) => setState(() => _nome = value),
+                    onTurmaChanged: (value) => setState(() => _turma = value),
+                    onDateChanged: (value) =>
+                        setState(() => _dataAplicacao = value),
+                    onQuantityChanged: _alterarQuantidade,
                   ),
                   _QuestoesStep(
+                    questoes: _questoesDisponiveis,
                     selecionadas: _questoesSelecionadas,
-                    onToggle: (index) => setState(() {
-                      if (_questoesSelecionadas.contains(index)) {
-                        _questoesSelecionadas.remove(index);
-                      } else {
-                        _questoesSelecionadas.add(index);
-                      }
-                    }),
+                    limite: _quantidadeQuestoes,
+                    onToggle: _alternarQuestao,
                   ),
                   _GerarStep(
                     nome: _nome,
-                    quantidadeQuestoes: _quantidadeQuestoes,
+                    turma: _turma,
+                    dataAplicacao: _dataAplicacao,
                     questoesSelecionadas: _questoesSelecionadas.length,
                     embaralharQuestoes: _embaralharQuestoes,
                     embaralharAlternativas: _embaralharAlternativas,
@@ -87,7 +253,14 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
                 ],
               ),
             ),
-            _WizardFooter(etapa: _etapa, onContinue: _avancar),
+            _WizardFooter(
+              etapa: _etapa,
+              salvando: _salvando,
+              onContinue: _etapaValida && !_salvando ? _avancar : null,
+              onSaveDraft: _etapaValida && !_salvando
+                  ? () => _salvar(ProvaStatus.rascunho)
+                  : null,
+            ),
           ],
         ),
       ),
@@ -230,14 +403,26 @@ class _StepLine extends StatelessWidget {
 
 class _DadosStep extends StatelessWidget {
   final String nome;
+  final List<Turma> turmas;
+  final bool carregandoTurmas;
+  final Turma? turma;
+  final DateTime dataAplicacao;
   final int quantidadeQuestoes;
   final ValueChanged<String> onNameChanged;
+  final ValueChanged<Turma?> onTurmaChanged;
+  final ValueChanged<DateTime> onDateChanged;
   final ValueChanged<int> onQuantityChanged;
 
   const _DadosStep({
     required this.nome,
+    required this.turmas,
+    required this.carregandoTurmas,
+    required this.turma,
+    required this.dataAplicacao,
     required this.quantidadeQuestoes,
     required this.onNameChanged,
+    required this.onTurmaChanged,
+    required this.onDateChanged,
     required this.onQuantityChanged,
   });
 
@@ -254,32 +439,57 @@ class _DadosStep extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const _FieldLabel('TURMA'),
-          DropdownButtonFormField<String>(
-            initialValue: '1º A — 1º Ano (38 alunos)',
-            items: const [
-              DropdownMenuItem(
-                value: '1º A — 1º Ano (38 alunos)',
-                child: Text('1º A — 1º Ano (38 alunos)'),
+          if (carregandoTurmas)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: LinearProgressIndicator(color: Color(0xFF5547EA)),
+            )
+          else if (turmas.isEmpty)
+            const Text(
+              'Nenhuma turma cadastrada. Cadastre uma turma antes de criar a prova.',
+              style: TextStyle(color: Color(0xFFB65D2E), fontSize: 12),
+            )
+          else
+            DropdownButtonFormField<String>(
+              initialValue: turma?.id,
+              hint: const Text('Selecione a turma'),
+              items: [
+                for (final item in turmas)
+                  DropdownMenuItem(
+                    value: item.id,
+                    child: Text(
+                      '${item.nome} — ${item.ano} (${item.totalAlunos} alunos)',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (id) => onTurmaChanged(
+                turmas.where((item) => item.id == id).firstOrNull,
               ),
-            ],
-            onChanged: (_) {},
-            decoration: _inputDecoration(''),
-          ),
+              decoration: _inputDecoration(''),
+            ),
           const SizedBox(height: 16),
           const _FieldLabel('DATA DE APLICAÇÃO'),
-          TextField(
-            readOnly: true,
+          InkWell(
+            borderRadius: BorderRadius.circular(15),
             onTap: () async {
-              await showDatePicker(
+              final escolhida = await showDatePicker(
                 context: context,
                 firstDate: DateTime(2024),
-                lastDate: DateTime(2030),
-                initialDate: DateTime(2026),
+                lastDate: DateTime(DateTime.now().year + 5),
+                initialDate: dataAplicacao,
               );
+              if (escolhida != null) onDateChanged(escolhida);
             },
-            decoration: _inputDecoration(
-              'dd/mm/aaaa',
-              suffixIcon: Icons.calendar_month_outlined,
+            child: InputDecorator(
+              decoration: _inputDecoration(
+                'dd/mm/aaaa',
+                suffixIcon: Icons.calendar_month_outlined,
+              ),
+              child: Text(
+                _formatarData(dataAplicacao),
+                style: const TextStyle(color: Color(0xFF101827), fontSize: 14),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -305,63 +515,42 @@ class _DadosStep extends StatelessWidget {
 }
 
 class _QuestoesStep extends StatelessWidget {
-  final Set<int> selecionadas;
-  final ValueChanged<int> onToggle;
+  final List<Questao> questoes;
+  final List<String> selecionadas;
+  final int limite;
+  final ValueChanged<Questao> onToggle;
 
-  const _QuestoesStep({required this.selecionadas, required this.onToggle});
-
-  static const questoes = [
-    (
-      'Qual organela é responsável pela produção de energia (ATP) nas células eucarióticas?',
-      'Citologia',
-      'Fácil',
-      'Gabarito: C',
-    ),
-    (
-      'A membrana plasmática é composta principalmente por uma bicamada de:',
-      'Citologia',
-      'Fácil',
-      'Gabarito: B',
-    ),
-    (
-      'O processo pelo qual as células realizam a divisão celular para formar células-filhas geneticamente...',
-      'Divisão celular',
-      'Fácil',
-      'Gabarito: B',
-    ),
-    (
-      'Na fotossíntese, qual gás é liberado como subproduto da fotólise da água?',
-      'Fisiologia vegetal',
-      'Médio',
-      'Gabarito: D',
-    ),
-    (
-      'As leis de Mendel foram estabelecidas com experimentos realizados com qual planta?',
-      'Genética',
-      'Fácil',
-      'Gabarito: C',
-    ),
-  ];
+  const _QuestoesStep({
+    required this.questoes,
+    required this.selecionadas,
+    required this.limite,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(22, 17, 22, 25),
     children: [
-      const Text(
-        'BANCO DE QUESTÕES — SELECIONE ATÉ 10',
-        style: TextStyle(
+      Text(
+        'BANCO DE QUESTÕES — SELECIONE ATÉ $limite',
+        style: const TextStyle(
           color: Color(0xFF52647C),
           fontSize: 11,
           fontWeight: FontWeight.w600,
           letterSpacing: .3,
         ),
       ),
+      const SizedBox(height: 4),
+      Text(
+        '${selecionadas.length} de $limite questões selecionadas',
+        style: const TextStyle(color: Color(0xFF91A0B5), fontSize: 11),
+      ),
       const SizedBox(height: 12),
       for (var index = 0; index < questoes.length; index++) ...[
         _QuestionCard(
           question: questoes[index],
-          selected: selecionadas.contains(index),
-          onTap: () => onToggle(index),
+          selected: selecionadas.contains(questoes[index].id),
+          onTap: () => onToggle(questoes[index]),
         ),
         if (index < questoes.length - 1) const SizedBox(height: 10),
       ],
@@ -370,7 +559,7 @@ class _QuestoesStep extends StatelessWidget {
 }
 
 class _QuestionCard extends StatelessWidget {
-  final (String, String, String, String) question;
+  final Questao question;
   final bool selected;
   final VoidCallback onTap;
 
@@ -425,7 +614,7 @@ class _QuestionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  question.$1,
+                  question.enunciado,
                   style: const TextStyle(
                     color: Color(0xFF355173),
                     fontSize: 11,
@@ -438,17 +627,17 @@ class _QuestionCard extends StatelessWidget {
                   runSpacing: 5,
                   children: [
                     _Tag(
-                      question.$2,
+                      question.assunto,
                       const Color(0xFFE7E9FF),
                       const Color(0xFF443CE1),
                     ),
                     _Tag(
-                      question.$3,
+                      question.dificuldade,
                       const Color(0xFFD4F8E7),
                       const Color(0xFF07865D),
                     ),
                     _Tag(
-                      question.$4,
+                      'Gabarito: ${question.correta}',
                       const Color(0xFFE6FAF0),
                       const Color(0xFF16825D),
                     ),
@@ -465,7 +654,8 @@ class _QuestionCard extends StatelessWidget {
 
 class _GerarStep extends StatelessWidget {
   final String nome;
-  final int quantidadeQuestoes;
+  final Turma? turma;
+  final DateTime dataAplicacao;
   final int questoesSelecionadas;
   final bool embaralharQuestoes;
   final bool embaralharAlternativas;
@@ -476,7 +666,8 @@ class _GerarStep extends StatelessWidget {
 
   const _GerarStep({
     required this.nome,
-    required this.quantidadeQuestoes,
+    required this.turma,
+    required this.dataAplicacao,
     required this.questoesSelecionadas,
     required this.embaralharQuestoes,
     required this.embaralharAlternativas,
@@ -534,9 +725,9 @@ class _GerarStep extends StatelessWidget {
       const SizedBox(height: 15),
       _SummaryCard(
         nome: nome,
-        quantidadeQuestoes: questoesSelecionadas == 0
-            ? quantidadeQuestoes
-            : questoesSelecionadas,
+        turma: turma,
+        dataAplicacao: dataAplicacao,
+        quantidadeQuestoes: questoesSelecionadas,
         numeroVersoes: numeroVersoes,
       ),
     ],
@@ -587,11 +778,15 @@ class _SwitchLine extends StatelessWidget {
 
 class _SummaryCard extends StatelessWidget {
   final String nome;
+  final Turma? turma;
+  final DateTime dataAplicacao;
   final int quantidadeQuestoes;
   final int numeroVersoes;
 
   const _SummaryCard({
     required this.nome,
+    required this.turma,
+    required this.dataAplicacao,
     required this.quantidadeQuestoes,
     required this.numeroVersoes,
   });
@@ -616,9 +811,9 @@ class _SummaryCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        _SummaryRow('Nome', nome.isEmpty ? 'Não informado' : nome),
-        _SummaryRow('Turma', '1º A'),
-        _SummaryRow('Data', 'Não informada'),
+        _SummaryRow('Nome', nome.trim().isEmpty ? 'Não informado' : nome),
+        _SummaryRow('Turma', turma?.nome ?? 'Não informada'),
+        _SummaryRow('Data', _formatarData(dataAplicacao)),
         _SummaryRow('Questões selecionadas', '$quantidadeQuestoes'),
         _SummaryRow('Versões', '$numeroVersoes'),
       ],
@@ -663,9 +858,16 @@ class _SummaryRow extends StatelessWidget {
 
 class _WizardFooter extends StatelessWidget {
   final int etapa;
-  final VoidCallback onContinue;
+  final bool salvando;
+  final VoidCallback? onContinue;
+  final VoidCallback? onSaveDraft;
 
-  const _WizardFooter({required this.etapa, required this.onContinue});
+  const _WizardFooter({
+    required this.etapa,
+    required this.salvando,
+    required this.onContinue,
+    required this.onSaveDraft,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -675,31 +877,66 @@ class _WizardFooter extends StatelessWidget {
         color: Colors.white,
         border: Border(top: BorderSide(color: Color(0xFFE4E9F1))),
       ),
-      child: SizedBox(
-        height: 46,
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: onContinue,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6040EB),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 46,
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onContinue,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6040EB),
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFFD8D4F8),
+                disabledForegroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+              child: salvando
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                  : Text(
+                      etapa == 2 ? 'Gerar prova' : 'Continuar',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
             ),
           ),
-          child: Text(
-            etapa == 2 ? 'Gerar prova' : 'Continuar',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
+          if (etapa == 2) ...[
+            const SizedBox(height: 6),
+            TextButton(
+              onPressed: onSaveDraft,
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF5146EE),
+              ),
+              child: const Text(
+                'Salvar como rascunho',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
 class _CriandoProvaScreen extends StatefulWidget {
-  const _CriandoProvaScreen();
+  final int quantidadeQuestoes;
+  final bool rascunho;
+
+  const _CriandoProvaScreen({
+    required this.quantidadeQuestoes,
+    required this.rascunho,
+  });
 
   @override
   State<_CriandoProvaScreen> createState() => _CriandoProvaScreenState();
@@ -739,18 +976,20 @@ class _CriandoProvaScreenState extends State<_CriandoProvaScreen> {
                 child: const Icon(Icons.check, color: Colors.black, size: 35),
               ),
               const SizedBox(height: 18),
-              const Text(
-                'Prova criada!',
-                style: TextStyle(
+              Text(
+                widget.rascunho ? 'Rascunho salvo!' : 'Prova criada!',
+                style: const TextStyle(
                   color: Color(0xFF101827),
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Nova prova foi gerada com 10 questões.',
-                style: TextStyle(color: Color(0xFF667A96), fontSize: 13),
+              Text(
+                widget.quantidadeQuestoes == 1
+                    ? 'A prova foi salva com 1 questão.'
+                    : 'A prova foi salva com ${widget.quantidadeQuestoes} questões.',
+                style: const TextStyle(color: Color(0xFF667A96), fontSize: 13),
               ),
               const SizedBox(height: 18),
               const SizedBox(
@@ -814,6 +1053,9 @@ class _FieldLabel extends StatelessWidget {
     ),
   );
 }
+
+String _formatarData(DateTime data) =>
+    '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
 
 InputDecoration _inputDecoration(String hint, {IconData? suffixIcon}) =>
     InputDecoration(

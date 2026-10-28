@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../mocks/provas_mock.dart';
 import '../models/prova.dart';
+import '../models/turma.dart';
+import '../services/prova_service.dart';
+import '../services/turma_service.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'home_screen.dart';
 import 'nova_prova_screen.dart';
@@ -10,18 +14,344 @@ import 'turmas_screen.dart';
 import 'corrigir_prova_screen.dart';
 
 class ProvasScreen extends StatefulWidget {
-  const ProvasScreen({super.key});
+  final ProvaService? provaService;
+  final TurmaService? turmaService;
+
+  const ProvasScreen({super.key, this.provaService, this.turmaService});
 
   @override
   State<ProvasScreen> createState() => _ProvasScreenState();
 }
 
 class _ProvasScreenState extends State<ProvasScreen> {
+  late final ProvaService _provaService;
+  late final TurmaService _turmaService;
+  StreamSubscription<List<Prova>>? _provasSub;
+  StreamSubscription<List<Turma>>? _turmasSub;
+
+  List<Prova> _provas = [];
+  Map<String, int> _alunosPorTurma = {};
+  bool _carregando = true;
+  Object? _erro;
   ProvaStatus? _filtro;
 
   List<Prova> get _provasFiltradas {
-    if (_filtro == null) return provasMock;
-    return provasMock.where((prova) => prova.status == _filtro).toList();
+    if (_filtro == null) return _provas;
+    return _provas.where((prova) => prova.status == _filtro).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _provaService = widget.provaService ?? ProvaService();
+    _turmaService = widget.turmaService ?? TurmaService();
+    _escutarProvas();
+    _turmasSub = _turmaService.monitorarTurmas().listen(
+      (turmas) => setState(() {
+        _alunosPorTurma = {
+          for (final turma in turmas) turma.id: turma.totalAlunos,
+        };
+      }),
+      onError: (Object _) {},
+    );
+  }
+
+  @override
+  void dispose() {
+    _provasSub?.cancel();
+    _turmasSub?.cancel();
+    super.dispose();
+  }
+
+  void _escutarProvas() {
+    _provasSub?.cancel();
+    _provasSub = _provaService.monitorarProvas().listen(
+      (provas) => setState(() {
+        _provas = provas;
+        _carregando = false;
+      }),
+      onError: (Object e) => setState(() {
+        _erro = e;
+        _carregando = false;
+      }),
+      onDone: () {
+        if (mounted && _carregando) {
+          setState(() => _carregando = false);
+        }
+      },
+    );
+  }
+
+  _ProvaStats _statsFor(Prova prova) {
+    final corrigidas =
+        (prova.resumoResultado?['totalFolhasCorrigidas'] as num?)?.toInt() ?? 0;
+    final alunos = _alunosPorTurma[prova.turma.id] ?? corrigidas;
+    final pendentes = alunos > corrigidas ? alunos - corrigidas : 0;
+
+    return _ProvaStats(
+      corrected: corrigidas,
+      total: alunos,
+      pending: pendentes,
+      progress: alunos == 0 ? 0 : (corrigidas / alunos).clamp(0, 1).toDouble(),
+    );
+  }
+
+  void _mostrarMensagem(String mensagem, {bool erro = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: erro ? const Color(0xFFD32F2F) : null,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _alterarStatus(Prova prova, ProvaStatus status) async {
+    try {
+      await _provaService.atualizarStatus(prova.id, status);
+      if (!mounted) return;
+      _mostrarMensagem(
+        'Prova marcada como ${_statusStyle(status).label.toLowerCase()}.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarMensagem('Não foi possível atualizar a prova: $e', erro: true);
+    }
+  }
+
+  Future<void> _excluir(Prova prova) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Excluir prova',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'A prova "${prova.nome}" e os resultados das correções serão '
+          'removidos. Deseja continuar?',
+          style: const TextStyle(color: Color(0xFF64748B), height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Excluir',
+              style: TextStyle(
+                color: Color(0xFFEF4444),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmado != true) return;
+
+    try {
+      await _provaService.excluirProva(prova.id);
+      if (!mounted) return;
+      _mostrarMensagem('Prova excluída.');
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarMensagem('Não foi possível excluir a prova: $e', erro: true);
+    }
+  }
+
+  Future<void> _abrirAcoes(Prova prova) async {
+    final acoes = <({String label, IconData icon, ProvaStatus status})>[
+      if (prova.status == ProvaStatus.rascunho)
+        (
+          label: 'Publicar prova',
+          icon: Icons.publish_rounded,
+          status: ProvaStatus.ativa,
+        ),
+      if (prova.status == ProvaStatus.ativa)
+        (
+          label: 'Encerrar prova',
+          icon: Icons.lock_outline_rounded,
+          status: ProvaStatus.encerrada,
+        ),
+      if (prova.status == ProvaStatus.encerrada)
+        (
+          label: 'Reabrir prova',
+          icon: Icons.lock_open_rounded,
+          status: ProvaStatus.ativa,
+        ),
+    ];
+
+    final escolha = await showModalBottomSheet<Object>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
+              child: Text(
+                prova.nome,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF101827),
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            for (final acao in acoes)
+              ListTile(
+                leading: Icon(acao.icon, color: const Color(0xFF5146EE)),
+                title: Text(acao.label),
+                onTap: () => Navigator.pop(context, acao.status),
+              ),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFFEF4444),
+              ),
+              title: const Text(
+                'Excluir prova',
+                style: TextStyle(color: Color(0xFFEF4444)),
+              ),
+              onTap: () => Navigator.pop(context, 'excluir'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || escolha == null) return;
+
+    if (escolha is ProvaStatus) {
+      await _alterarStatus(prova, escolha);
+    } else if (escolha == 'excluir') {
+      await _excluir(prova);
+    }
+  }
+
+  Widget _buildConteudo() {
+    if (_carregando) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF5547EA)),
+      );
+    }
+
+    if (_erro != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: Color(0xFFE53935),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Não foi possível carregar as provas.',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '$_erro',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _carregando = true;
+                    _erro = null;
+                  });
+                  _escutarProvas();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5547EA),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Tentar novamente'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final provas = _provasFiltradas;
+
+    if (provas.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.description_outlined,
+                size: 48,
+                color: Color(0xFF94A3B8),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _provas.isEmpty
+                    ? 'Nenhuma prova criada'
+                    : 'Nenhuma prova neste filtro',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              if (_provas.isEmpty) ...[
+                const SizedBox(height: 6),
+                const Text(
+                  'Toque em "+ Nova" para criar a primeira prova.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(23, 12, 23, 20),
+      itemCount: provas.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
+      itemBuilder: (context, index) => InkWell(
+        onTap: () => _abrirAcoes(provas[index]),
+        borderRadius: BorderRadius.circular(16),
+        child: _ProvaCard(
+          prova: provas[index],
+          stats: _statsFor(provas[index]),
+        ),
+      ),
+    );
   }
 
   @override
@@ -37,27 +367,20 @@ class _ProvasScreenState extends State<ProvasScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const NovaProvaScreen(),
+                    builder: (context) => NovaProvaScreen(
+                      provaService: _provaService,
+                      turmaService: _turmaService,
+                    ),
                   ),
                 );
               },
             ),
             _FilterBar(
+              provas: _provas,
               filtroSelecionado: _filtro,
               onFilterSelected: (filtro) => setState(() => _filtro = filtro),
             ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(23, 12, 23, 20),
-                itemCount: _provasFiltradas.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 10),
-                itemBuilder: (context, index) => _ProvaCard(
-                  prova: _provasFiltradas[index],
-                  stats: _statsFor(_provasFiltradas[index]),
-                ),
-              ),
-            ),
+            Expanded(child: _buildConteudo()),
             AppBottomNavigation(
               currentItem: AppNavigationItem.provas,
               onInicio: () {
@@ -112,35 +435,14 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Row(
-              children: [
-                const Text(
-                  'Minhas Provas',
-                  style: TextStyle(
-                    color: Color(0xFF101827),
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF2FF),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'Demonstrativo',
-                    style: TextStyle(
-                      color: Color(0xFF5146EE),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
+          const Expanded(
+            child: Text(
+              'Minhas Provas',
+              style: TextStyle(
+                color: Color(0xFF101827),
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           TextButton(
@@ -165,18 +467,23 @@ class _Header extends StatelessWidget {
 }
 
 class _FilterBar extends StatelessWidget {
+  final List<Prova> provas;
   final ProvaStatus? filtroSelecionado;
   final ValueChanged<ProvaStatus?> onFilterSelected;
 
   const _FilterBar({
+    required this.provas,
     required this.filtroSelecionado,
     required this.onFilterSelected,
   });
 
+  int _count(ProvaStatus status) =>
+      provas.where((prova) => prova.status == status).length;
+
   @override
   Widget build(BuildContext context) {
     final filtros = <({String label, ProvaStatus? status, int count})>[
-      (label: 'Todas', status: null, count: provasMock.length),
+      (label: 'Todas', status: null, count: provas.length),
       (
         label: 'Ativas',
         status: ProvaStatus.ativa,
@@ -337,16 +644,11 @@ class _ProvaCard extends StatelessWidget {
               _InfoBox(value: '${prova.quantidadeQuestoes}', label: 'Questões'),
               const SizedBox(width: 7),
               _InfoBox(
-                value: '${stats.corrected}/${prova.quantidadeQuestoes}',
+                value: '${stats.corrected}/${stats.total}',
                 label: 'Corrigidas',
               ),
               const SizedBox(width: 7),
-              _InfoBox(
-                value: isDraft
-                    ? '${prova.quantidadeQuestoes}'
-                    : '${stats.pending}',
-                label: isDraft ? 'Pendentes' : 'Pendentes',
-              ),
+              _InfoBox(value: '${stats.pending}', label: 'Pendentes'),
             ],
           ),
           if (isDraft)
@@ -459,27 +761,16 @@ class _StatusBadge extends StatelessWidget {
 
 class _ProvaStats {
   final int corrected;
+  final int total;
   final int pending;
   final double progress;
 
   const _ProvaStats({
     required this.corrected,
+    required this.total,
     required this.pending,
     required this.progress,
   });
-}
-
-_ProvaStats _statsFor(Prova prova) {
-  switch (prova.id) {
-    case '1':
-      return const _ProvaStats(corrected: 36, pending: 2, progress: .95);
-    case '2':
-      return const _ProvaStats(corrected: 12, pending: 26, progress: .32);
-    case '3':
-      return const _ProvaStats(corrected: 0, pending: 15, progress: 0);
-    default:
-      return const _ProvaStats(corrected: 24, pending: 8, progress: .75);
-  }
 }
 
 ({String label, Color background, Color foreground}) _statusStyle(
@@ -506,9 +797,6 @@ _ProvaStats _statsFor(Prova prova) {
       );
   }
 }
-
-int _count(ProvaStatus status) =>
-    provasMock.where((prova) => prova.status == status).length;
 
 String _formatDate(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
