@@ -10,6 +10,7 @@ import 'package:prova_certa/models/turma.dart';
 import 'package:prova_certa/screens/nova_prova_screen.dart';
 import 'package:prova_certa/screens/provas_screen.dart';
 import 'package:prova_certa/services/prova_service.dart';
+import 'package:prova_certa/services/questao_service.dart';
 import 'package:prova_certa/services/turma_service.dart';
 
 class FakeProvaService extends ProvaService {
@@ -75,6 +76,28 @@ class FakeTurmasProvaService extends TurmaService {
       Stream.value(turmas);
 }
 
+class FakeQuestoesProvaService extends QuestaoService {
+  List<Questao> questoes;
+  final StreamController<List<Questao>> _controller =
+      StreamController<List<Questao>>.broadcast();
+
+  FakeQuestoesProvaService(this.questoes);
+
+  void atualizar(List<Questao> novas) {
+    questoes = novas;
+    _controller.add(novas);
+  }
+
+  @override
+  Stream<List<Questao>> monitorarQuestoes({String? userId}) {
+    return Stream<List<Questao>>.multi((controller) {
+      controller.add(questoes);
+      final sub = _controller.stream.listen(controller.add);
+      controller.onCancel = () => sub.cancel();
+    });
+  }
+}
+
 final turmaA = Turma(
   id: 'turma_a',
   nome: '1º A',
@@ -133,15 +156,17 @@ Future<void> abrirProvas(WidgetTester tester, FakeProvaService service) async {
   await tester.pumpAndSettle();
 }
 
-Future<FakeProvaService> preencherNovaProva(WidgetTester tester) async {
-  final service = FakeProvaService();
-
+Future<void> abrirEtapaQuestoes(
+  WidgetTester tester,
+  FakeProvaService service,
+  FakeQuestoesProvaService questaoService,
+) async {
   await tester.pumpWidget(
     MaterialApp(
       home: NovaProvaScreen(
         provaService: service,
         turmaService: FakeTurmasProvaService([turmaA]),
-        questoesDisponiveis: questoesTeste,
+        questaoService: questaoService,
       ),
     ),
   );
@@ -155,6 +180,16 @@ Future<FakeProvaService> preencherNovaProva(WidgetTester tester) async {
 
   await tester.tap(find.text('Continuar'));
   await tester.pumpAndSettle();
+}
+
+Future<FakeProvaService> preencherNovaProva(WidgetTester tester) async {
+  final service = FakeProvaService();
+
+  await abrirEtapaQuestoes(
+    tester,
+    service,
+    FakeQuestoesProvaService(questoesTeste),
+  );
 
   await tester.tap(find.text('Enunciado da questão dois'));
   await tester.tap(find.text('Enunciado da questão um'));
@@ -304,7 +339,7 @@ void main() {
           home: NovaProvaScreen(
             provaService: FakeProvaService(),
             turmaService: FakeTurmasProvaService([turmaA]),
-            questoesDisponiveis: questoesTeste,
+            questaoService: FakeQuestoesProvaService(questoesTeste),
           ),
         ),
       );
@@ -322,7 +357,7 @@ void main() {
           home: NovaProvaScreen(
             provaService: FakeProvaService(),
             turmaService: FakeTurmasProvaService(const []),
-            questoesDisponiveis: questoesTeste,
+            questaoService: FakeQuestoesProvaService(questoesTeste),
           ),
         ),
       );
@@ -352,7 +387,62 @@ void main() {
       expect(salva.extrairQuestoesIds(), ['q2', 'q1']);
       expect(salva.gabaritoOficial, ['C', 'A']);
 
+      final snapshot = salva.extrairQuestoesSnapshot();
+      expect(snapshot.map((q) => q['enunciado']), [
+        'Enunciado da questão dois',
+        'Enunciado da questão um',
+      ]);
+
       await concluirTransicao(tester);
+    });
+
+    testWidgets('mostra aviso quando o banco de questões está vazio',
+        (tester) async {
+      await abrirEtapaQuestoes(
+        tester,
+        FakeProvaService(),
+        FakeQuestoesProvaService(const []),
+      );
+
+      expect(find.text('Nenhuma questão no banco'), findsOneWidget);
+      expect(find.text('Abrir banco de questões'), findsOneWidget);
+    });
+
+    testWidgets('lista as questões do banco e respeita o limite',
+        (tester) async {
+      await abrirEtapaQuestoes(
+        tester,
+        FakeProvaService(),
+        FakeQuestoesProvaService(questoesTeste),
+      );
+
+      expect(find.text('Enunciado da questão um'), findsOneWidget);
+      expect(find.text('Enunciado da questão dois'), findsOneWidget);
+      expect(find.text('Enunciado da questão três'), findsOneWidget);
+      expect(find.text('Gabarito: C'), findsOneWidget);
+
+      await tester.tap(find.text('Enunciado da questão um'));
+      await tester.pumpAndSettle();
+      expect(find.text('1 de 10 questões selecionadas'), findsOneWidget);
+    });
+
+    testWidgets('remove da seleção a questão excluída do banco',
+        (tester) async {
+      final questaoService = FakeQuestoesProvaService(questoesTeste);
+      await abrirEtapaQuestoes(tester, FakeProvaService(), questaoService);
+
+      await tester.tap(find.text('Enunciado da questão um'));
+      await tester.tap(find.text('Enunciado da questão dois'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 de 10 questões selecionadas'), findsOneWidget);
+
+      questaoService.atualizar(
+        questoesTeste.where((q) => q.id != 'q2').toList(),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Enunciado da questão dois'), findsNothing);
+      expect(find.text('1 de 10 questões selecionadas'), findsOneWidget);
     });
 
     testWidgets('salva a prova como rascunho', (tester) async {
