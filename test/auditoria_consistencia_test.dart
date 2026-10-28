@@ -13,7 +13,19 @@ import 'package:prova_certa/screens/provas_screen.dart';
 import 'package:prova_certa/screens/resultados_screen.dart';
 import 'package:prova_certa/services/auth_service.dart';
 
+import 'resultados_test.dart';
 import 'turmas_alunos_test.dart';
+
+/// Valor exibido na métrica do cabeçalho da Home com o rótulo informado.
+String valorMetrica(WidgetTester tester, String rotulo) {
+  final metrica = find
+      .ancestor(of: find.text(rotulo), matching: find.byType(Column))
+      .first;
+  return tester
+      .widgetList<Text>(find.descendant(of: metrica, matching: find.byType(Text)))
+      .first
+      .data!;
+}
 
 class FakeAuditoriaAuthService extends AuthService {
   Usuario? _usuarioAtual;
@@ -135,7 +147,7 @@ void main() {
 
       // Inicialmente não há turmas: alunos deve ser 0 (NÃO 145)
       expect(find.text('145'), findsNothing);
-      expect(find.text('0'), findsOneWidget);
+      expect(valorMetrica(tester, 'Alunos'), '0');
 
       // Cria Turma 1 e cadastra 2 alunos
       final t1 = await fakeTurma.criarTurma(
@@ -181,7 +193,7 @@ void main() {
       expect(find.text('145'), findsNothing);
     });
 
-    testWidgets('3. HomeScreen: métricas e seções demonstrativas identificadas',
+    testWidgets('3. HomeScreen: métricas de correção vêm dos resultados reais',
         (tester) async {
       final fakeAuth = FakeAuditoriaAuthService();
       final fakeTurma = FakeTurmaService();
@@ -191,18 +203,21 @@ void main() {
           home: HomeScreen(
             authService: fakeAuth,
             turmaService: fakeTurma,
+            resultadoService: FakeResultadoService(),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // Provas e corrigidas possuem identificador (demo)
-      expect(find.text('Provas (demo)'), findsOneWidget);
-      expect(find.text('Corrigidas (demo)'), findsOneWidget);
+      // Sem correções salvas, as métricas ficam zeradas (nada de números fixos)
+      expect(find.text('Provas (demo)'), findsNothing);
+      expect(find.text('Corrigidas (demo)'), findsNothing);
+      expect(valorMetrica(tester, 'Provas corrigidas'), '0');
+      expect(valorMetrica(tester, 'Folhas corrigidas'), '0');
 
-      // Seção Avaliações Recentes possui identificador Demonstrativo
-      expect(find.text('AVALIAÇÕES RECENTES'), findsOneWidget);
-      expect(find.text('Demonstrativo'), findsOneWidget);
+      expect(find.text('CORREÇÕES RECENTES'), findsOneWidget);
+      expect(find.text('Demonstrativo'), findsNothing);
+      expect(find.textContaining('Nenhuma prova corrigida ainda'), findsOneWidget);
     });
 
     testWidgets('4. ProfileScreen: exibe perfil real e contador de turmas real',
@@ -379,7 +394,7 @@ void main() {
       // Dados da Professora B
       expect(find.text('Professora B'), findsOneWidget);
       expect(find.text('PB'), findsOneWidget);
-      expect(find.text('0'), findsOneWidget);
+      expect(valorMetrica(tester, 'Alunos'), '0');
     });
 
     testWidgets(
@@ -390,10 +405,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Demonstrativo'), findsOneWidget);
 
-      // ResultadosScreen
-      await tester.pumpWidget(const MaterialApp(home: ResultadosScreen()));
+      // ResultadosScreen agora usa dados reais: sem correções, mostra estado vazio
+      await tester.pumpWidget(
+        MaterialApp(home: ResultadosScreen(resultadoService: FakeResultadoService())),
+      );
       await tester.pumpAndSettle();
-      expect(find.text('Modo demonstrativo'), findsOneWidget);
+      expect(find.text('Modo demonstrativo'), findsNothing);
+      expect(find.text('Nenhuma prova corrigida ainda'), findsOneWidget);
 
       // BancoQuestoesScreen
       await tester.pumpWidget(const MaterialApp(home: BancoQuestoesScreen()));

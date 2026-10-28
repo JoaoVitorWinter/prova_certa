@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/prova.dart';
+import '../models/resultado.dart';
+import 'resultados_screen.dart';
 
 class CorrecaoConcluidaScreen extends StatelessWidget {
   final Prova prova;
@@ -8,12 +10,18 @@ class CorrecaoConcluidaScreen extends StatelessWidget {
   final int totalAcertos;
   final int totalQuestoes;
 
+  // Estatísticas calculadas na correção; [salvo] indica se foram gravadas no Firestore.
+  final ResultadoProva? resultado;
+  final bool salvo;
+
   const CorrecaoConcluidaScreen({
     super.key,
     required this.prova,
     required this.folhasCorrigidas,
     required this.totalAcertos,
     required this.totalQuestoes,
+    this.resultado,
+    this.salvo = true,
   });
 
   double get percentual {
@@ -59,6 +67,10 @@ class CorrecaoConcluidaScreen extends StatelessWidget {
                     _buildResumo(),
                     const SizedBox(height: 18),
                     _buildInfoCard(),
+                    if (!salvo) ...[
+                      const SizedBox(height: 12),
+                      _buildAvisoNaoSalvo(),
+                    ],
                   ],
                 ),
               ),
@@ -77,11 +89,7 @@ class CorrecaoConcluidaScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFE4E9F1),
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE4E9F1))),
       ),
       alignment: Alignment.centerLeft,
       child: const Text(
@@ -148,9 +156,7 @@ class CorrecaoConcluidaScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE3E8F0),
-        ),
+        border: Border.all(color: const Color(0xFFE3E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,26 +170,41 @@ class CorrecaoConcluidaScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _InfoRow(
-            label: 'Prova',
-            value: prova.nome,
-          ),
+          _InfoRow(label: 'Prova', value: prova.nome),
           const SizedBox(height: 8),
-          _InfoRow(
-            label: 'Questões avaliadas',
-            value: '$totalQuestoes',
-          ),
+          _InfoRow(label: 'Questões avaliadas', value: '$totalQuestoes'),
           const SizedBox(height: 8),
-          _InfoRow(
-            label: 'Questões corretas',
-            value: '$totalAcertos',
-          ),
+          _InfoRow(label: 'Questões corretas', value: '$totalAcertos'),
           const SizedBox(height: 8),
           _InfoRow(
             label: 'Questões incorretas',
             value: '${totalQuestoes - totalAcertos}',
           ),
+          if (resultado != null) ...[
+            const SizedBox(height: 8),
+            _InfoRow(
+              label: 'Média da turma',
+              value: resultado!.media.toStringAsFixed(1),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvisoNaoSalvo() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4E5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF6D3A1)),
+      ),
+      child: const Text(
+        'Não foi possível salvar no servidor. Os resultados desta correção '
+        'ficam disponíveis apenas até você sair do app.',
+        style: TextStyle(color: Color(0xFF9A5B12), fontSize: 10, height: 1.35),
       ),
     );
   }
@@ -200,10 +221,12 @@ class CorrecaoConcluidaScreen extends StatelessWidget {
             height: 42,
             child: ElevatedButton(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Resultados completos disponíveis em breve.',
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ResultadosScreen(
+                      provaIdInicial: prova.id,
+                      resultadoNaoSalvo: salvo ? null : resultado,
                     ),
                   ),
                 );
@@ -218,10 +241,7 @@ class CorrecaoConcluidaScreen extends StatelessWidget {
               ),
               child: const Text(
                 'Ver resultados completos',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -231,26 +251,18 @@ class CorrecaoConcluidaScreen extends StatelessWidget {
             height: 42,
             child: OutlinedButton(
               onPressed: () {
-                Navigator.popUntil(
-                  context,
-                  (route) => route.isFirst,
-                );
+                Navigator.popUntil(context, (route) => route.isFirst);
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF5647E8),
-                side: const BorderSide(
-                  color: Color(0xFFBFC5FF),
-                ),
+                side: const BorderSide(color: Color(0xFFBFC5FF)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: const Text(
                 'Corrigir outra prova',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -279,18 +291,12 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(
-          color: const Color(0xFFE3E8F0),
-        ),
+        border: Border.all(color: const Color(0xFFE3E8F0)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: const Color(0xFF5747E8),
-            size: 21,
-          ),
+          Icon(icon, color: const Color(0xFF5747E8), size: 21),
           const SizedBox(height: 7),
           Text(
             value,
@@ -304,10 +310,7 @@ class _StatCard extends StatelessWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF8994A6),
-              fontSize: 8,
-            ),
+            style: const TextStyle(color: Color(0xFF8994A6), fontSize: 8),
           ),
         ],
       ),
@@ -319,10 +322,7 @@ class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _InfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _InfoRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -331,10 +331,7 @@ class _InfoRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF7F8B9D),
-              fontSize: 10,
-            ),
+            style: const TextStyle(color: Color(0xFF7F8B9D), fontSize: 10),
           ),
         ),
         Flexible(

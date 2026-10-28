@@ -255,7 +255,7 @@ class _DadosStep extends StatelessWidget {
           const SizedBox(height: 16),
           const _FieldLabel('TURMA'),
           DropdownButtonFormField<String>(
-            value: '1º A — 1º Ano (38 alunos)',
+            initialValue: '1º A — 1º Ano (38 alunos)',
             items: const [
               DropdownMenuItem(
                 value: '1º A — 1º Ano (38 alunos)',
@@ -578,7 +578,7 @@ class _SwitchLine extends StatelessWidget {
       Switch(
         value: value,
         onChanged: onChanged,
-        activeColor: Colors.white,
+        activeThumbColor: Colors.white,
         activeTrackColor: const Color(0xFF5547EA),
       ),
     ],
