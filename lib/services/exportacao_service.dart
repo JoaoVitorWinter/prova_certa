@@ -1,7 +1,6 @@
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:csv/csv.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/resultado.dart';
@@ -89,25 +88,28 @@ class ExportacaoService {
     return '${prefixo}_$nome.csv';
   }
 
-  /// Grava o CSV em um arquivo temporário e abre a tela de compartilhamento.
-  static Future<File> exportar({
+  /// Abre a tela de compartilhamento com o CSV. O arquivo vai em memória, sem
+  /// pasta temporária própria: no celular o share_plus grava o arquivo, e no
+  /// navegador ele é baixado quando o compartilhamento não está disponível.
+  static Future<ShareResult> exportar({
     required String conteudo,
     required String nomeArquivo,
     required String assunto,
-  }) async {
-    final pasta = await getTemporaryDirectory();
-    final arquivo = File('${pasta.path}/$nomeArquivo');
-    await arquivo.writeAsString(conteudo, flush: true);
-
-    await SharePlus.instance.share(
+  }) {
+    return SharePlus.instance.share(
       ShareParams(
-        files: [XFile(arquivo.path, mimeType: 'text/csv')],
+        files: [
+          XFile.fromData(
+            utf8.encode(conteudo),
+            name: nomeArquivo,
+            mimeType: 'text/csv',
+          ),
+        ],
+        fileNameOverrides: [nomeArquivo],
         subject: assunto,
         title: assunto,
       ),
     );
-
-    return arquivo;
   }
 
   static String _decimal(double valor) {

@@ -142,7 +142,7 @@ O projeto contempla as principais telas abaixo:
 - Firebase Authentication e Cloud Firestore
 - Mobile Scanner (leitura do QR Code do gabarito)
 - Camera e image (leitor de folhas, preparado para OCR)
-- csv, path_provider e share_plus (exportação e compartilhamento das notas)
+- csv e share_plus (exportação e compartilhamento das notas)
 - Estrutura de models, services, screens e mocks
 
 ---
