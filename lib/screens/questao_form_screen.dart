@@ -678,3 +678,81 @@ InputDecoration campoDecoration(String? hint) {
     ),
   );
 }
+
+
+class ChipFiltro extends StatelessWidget {
+  final String rotulo;
+  final bool ativo;
+  final Color fundo;
+  final Color texto;
+  final Color fundoAtivo;
+  final VoidCallback onTap;
+
+  const ChipFiltro({
+    super.key,
+    required this.rotulo,
+    required this.ativo,
+    required this.fundo,
+    required this.texto,
+    required this.fundoAtivo,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 8,
+        ),
+        decoration: BoxDecoration(
+          color: ativo ? fundoAtivo : fundo,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          rotulo,
+          style: TextStyle(
+            color: ativo ? Colors.white : texto,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color fundoDificuldade(String dificuldade) {
+  switch (dificuldade.toLowerCase()) {
+    case 'fácil':
+    case 'facil':
+      return const Color(0xFFDCFCE7);
+    case 'média':
+    case 'media':
+      return const Color(0xFFFEF3C7);
+    case 'difícil':
+    case 'dificil':
+      return const Color(0xFFFEE2E2);
+    default:
+      return const Color(0xFFF1F5F9);
+  }
+}
+
+Color textoDificuldade(String dificuldade) {
+  switch (dificuldade.toLowerCase()) {
+    case 'fácil':
+    case 'facil':
+      return const Color(0xFF15803D);
+    case 'média':
+    case 'media':
+      return const Color(0xFF92400E);
+    case 'difícil':
+    case 'dificil':
+      return const Color(0xFFB91C1C);
+    default:
+      return const Color(0xFF475569);
+  }
+}

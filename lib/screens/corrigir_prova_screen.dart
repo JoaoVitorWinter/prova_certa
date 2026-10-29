@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../mocks/provas_mock.dart';
 import '../models/prova.dart';
+import '../services/prova_service.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'gabarito_qr_screen.dart';
 import 'home_screen.dart';
@@ -17,23 +19,71 @@ class CorrigirProvaScreen extends StatefulWidget {
 }
 
 class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
-  Prova? _provaSelecionada;
+  late final ProvaService _provaService;
+  StreamSubscription<List<Prova>>? _provasSub;
 
-  List<Prova> get _provasParaCorrigir {
-    return provasMock
-        .where((prova) => prova.status == ProvaStatus.encerrada)
-        .toList();
-  }
+  List<Prova> _provas = [];
+  Prova? _provaSelecionada;
+  bool _carregando = true;
+  Object? _erro;
+
+  // Apenas provas ativas (abertas) podem iniciar uma nova correção.
+  List<Prova> get _provasParaCorrigir =>
+      _provas.where((prova) => prova.status == ProvaStatus.ativa).toList();
 
   @override
   void initState() {
     super.initState();
+    _provaService = ProvaService();
+    _escutarProvas();
+  }
 
-    final provas = _provasParaCorrigir;
+  void _escutarProvas() {
+    _provasSub?.cancel();
+    setState(() {
+      _carregando = true;
+      _erro = null;
+    });
 
-    if (provas.isNotEmpty) {
-      _provaSelecionada = provas.first;
-    }
+    _provasSub = _provaService.monitorarProvas().listen(
+      (provas) {
+        if (!mounted) return;
+        final abertas =
+            provas.where((prova) => prova.status == ProvaStatus.ativa).toList();
+        setState(() {
+          _provas = provas;
+          _carregando = false;
+          _erro = null;
+
+          if (_provaSelecionada == null ||
+              !abertas.any((p) => p.id == _provaSelecionada!.id)) {
+            _provaSelecionada = abertas.isEmpty ? null : abertas.first;
+          } else {
+            _provaSelecionada =
+                abertas.firstWhere((p) => p.id == _provaSelecionada!.id);
+          }
+        });
+      },
+      onError: (Object erro) {
+        if (!mounted) return;
+        setState(() {
+          _erro = erro;
+          _carregando = false;
+        });
+      },
+      onDone: () {
+        if (!mounted) return;
+        if (_carregando) {
+          setState(() => _carregando = false);
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _provasSub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -113,7 +163,7 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Text(
-              'Demonstrativo',
+              'Provas abertas',
               style: TextStyle(
                 color: Color(0xFF5146EE),
                 fontSize: 10,
@@ -128,6 +178,52 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
 
   Widget _buildSelecaoProva() {
     final provas = _provasParaCorrigir;
+
+    if (_carregando) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF5547EA)),
+        ),
+      );
+    }
+
+    if (_erro != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.error_outline, color: Color(0xFFD32F2F), size: 32),
+            const SizedBox(height: 8),
+            const Text(
+              'Não foi possível carregar as provas abertas.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF172033), fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$_erro',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF8895A7), fontSize: 10),
+            ),
+            TextButton(
+              onPressed: _escutarProvas,
+              child: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       width: double.infinity,
@@ -156,6 +252,20 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
           ),
           const SizedBox(height: 10),
 
+          if (provas.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 22, horizontal: 8),
+              child: Text(
+                'Não há provas abertas para corrigir. Publique uma prova '
+                'ou reabra uma prova encerrada na tela Minhas Provas.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFF8895A7),
+                  fontSize: 11,
+                  height: 1.5,
+                ),
+              ),
+            ),
           ...provas.map(
             (prova) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -178,8 +288,8 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
   Widget _buildComoFunciona() {
     final passos = [
       'Leia o QR code do gabarito da prova',
-      'Escaneie cada folha de resposta do aluno',
-      'O sistema corrige automaticamente e exibe a nota',
+      'Leia a folha de resposta do aluno',
+      'O sistema compara as respostas lidas com o gabarito oficial',
       'Ao finalizar, veja os resultados completos',
     ];
 

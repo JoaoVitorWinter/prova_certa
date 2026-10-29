@@ -49,7 +49,6 @@ class Prova {
     this.atualizadoEm,
   });
 
-  /// Extrai de forma tipada e segura os IDs das questões associadas à prova.
   List<String> extrairQuestoesIds() {
     if (questoesIds != null && questoesIds!.isNotEmpty) {
       return questoesIds!;
@@ -67,14 +66,11 @@ class Prova {
     return ids;
   }
 
-  /// Converte a lista de questões para um snapshot tipado e seguro.
-  /// Preserva o conteúdo original da prova no momento da aplicação,
-  /// evitando converter objetos arbitrários diretamente.
   List<Map<String, dynamic>> extrairQuestoesSnapshot() {
     final snapshot = <Map<String, dynamic>>[];
     for (final item in questoes) {
       if (item is Questao) {
-        snapshot.add(item.toFirestore());
+        snapshot.add(item.toMap());
       } else if (item is Map) {
         final map = Map<String, dynamic>.from(item);
         if (map.containsKey('enunciado') && map.containsKey('alternativas')) {
