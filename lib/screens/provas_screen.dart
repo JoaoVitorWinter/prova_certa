@@ -12,6 +12,7 @@ import 'nova_prova_screen.dart';
 import 'resultados_screen.dart';
 import 'turmas_screen.dart';
 import 'corrigir_prova_screen.dart';
+import 'qr_prova_screen.dart';
 
 class ProvasScreen extends StatefulWidget {
   final ProvaService? provaService;
@@ -213,6 +214,15 @@ class _ProvasScreenState extends State<ProvasScreen> {
                 ),
               ),
             ),
+            ListTile(
+              leading: const Icon(
+                Icons.qr_code_2_rounded,
+                color: Color(0xFF5146EE),
+              ),
+              title: const Text('Ver QR Code da prova'),
+              subtitle: const Text('Abrir novamente o código desta prova'),
+              onTap: () => Navigator.pop(context, 'qr'),
+            ),
             for (final acao in acoes)
               ListTile(
                 leading: Icon(acao.icon, color: const Color(0xFF5146EE)),
@@ -238,7 +248,15 @@ class _ProvasScreenState extends State<ProvasScreen> {
 
     if (!mounted || escolha == null) return;
 
-    if (escolha is ProvaStatus) {
+    if (escolha == 'qr') {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QrProvaScreen(prova: prova),
+        ),
+      );
+    } else if (escolha is ProvaStatus) {
       await _alterarStatus(prova, escolha);
     } else if (escolha == 'excluir') {
       await _excluir(prova);

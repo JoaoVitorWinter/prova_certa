@@ -11,7 +11,19 @@ const dificuldades = ['Fácil', 'Médio', 'Difícil'];
 class BancoQuestoesScreen extends StatefulWidget {
   final QuestaoService? questaoService;
 
-  const BancoQuestoesScreen({super.key, this.questaoService});
+  // Quando aberto a partir da criação de prova, permite marcar questões
+  // e devolve a lista escolhida com Navigator.pop.
+  final bool modoSelecao;
+  final List<String> selecionadas;
+  final int limite;
+
+  const BancoQuestoesScreen({
+    super.key,
+    this.questaoService,
+    this.modoSelecao = false,
+    this.selecionadas = const [],
+    this.limite = 20,
+  });
 
   @override
   State<BancoQuestoesScreen> createState() => _BancoQuestoesScreenState();
@@ -29,10 +41,13 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
   String assuntoFiltro = 'Todos';
   String? questaoAberta;
 
+  final Set<String> selecionadas = {};
+
   @override
   void initState() {
     super.initState();
     questaoService = widget.questaoService ?? QuestaoService();
+    selecionadas.addAll(widget.selecionadas);
     escutarQuestoes();
   }
 
@@ -50,6 +65,10 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
         setState(() {
           questoes = lista;
           carregando = false;
+
+          selecionadas.removeWhere(
+            (id) => !lista.any((questao) => questao.id == id),
+          );
 
           if (!assuntos.contains(assuntoFiltro)) {
             assuntoFiltro = 'Todos';
@@ -218,6 +237,7 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
 
     setState(() {
       questaoAberta = null;
+      selecionadas.remove(questao.id);
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -225,6 +245,35 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
         content: Text('Questão excluída.'),
       ),
     );
+  }
+
+  void alternarSelecao(Questao questao) {
+    if (selecionadas.contains(questao.id)) {
+      setState(() => selecionadas.remove(questao.id));
+      return;
+    }
+
+    if (selecionadas.length >= widget.limite) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Pode selecionar no máximo ${widget.limite} questões.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => selecionadas.add(questao.id));
+  }
+
+  void adicionarAProva() {
+    final resultado = <Questao>[
+      for (final id in selecionadas)
+        ...questoes.where((questao) => questao.id == id),
+    ];
+
+    Navigator.pop(context, resultado);
   }
 
   Widget buildConteudo() {
@@ -356,7 +405,7 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
         if (index == 0) {
           final total = filtradas.length;
 
-          return Text(
+          final encontradas = Text(
             total == 1
                 ? '1 questão encontrada'
                 : '$total questões encontradas',
@@ -366,6 +415,30 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
               fontSize: 13,
             ),
           );
+
+          if (!widget.modoSelecao) {
+            return encontradas;
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+
+            children: [
+              Text(
+                '${selecionadas.length} de ${widget.limite} questões selecionadas',
+
+                style: const TextStyle(
+                  color: Color(0xFF6545E8),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 4),
+
+              encontradas,
+            ],
+          );
         }
 
         final questao = filtradas[index - 1];
@@ -374,6 +447,9 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
           questao: questao,
           numero: index,
           aberta: questaoAberta == questao.id,
+          selecionada: selecionadas.contains(questao.id),
+          onSelecionar:
+              widget.modoSelecao ? () => alternarSelecao(questao) : null,
 
           onToggle: () {
             setState(() {
@@ -524,6 +600,33 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
           ),
         ],
       ),
+
+      bottomNavigationBar: widget.modoSelecao
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+
+                child: ElevatedButton.icon(
+                  onPressed: selecionadas.isEmpty ? null : adicionarAProva,
+
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6545E8),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 50),
+
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+
+                  icon: const Icon(Icons.playlist_add_check),
+                  label: Text(
+                    'Adicionar à prova (${selecionadas.length})',
+                  ),
+                ),
+              ),
+            )
+          : null,
     );
   }
 }
@@ -581,9 +684,11 @@ class QuestaoCard extends StatelessWidget {
   final Questao questao;
   final int numero;
   final bool aberta;
+  final bool selecionada;
   final VoidCallback onToggle;
   final VoidCallback onEditar;
   final VoidCallback onExcluir;
+  final VoidCallback? onSelecionar;
 
   const QuestaoCard({
     super.key,
@@ -593,6 +698,8 @@ class QuestaoCard extends StatelessWidget {
     required this.onToggle,
     required this.onEditar,
     required this.onExcluir,
+    this.selecionada = false,
+    this.onSelecionar,
   });
 
   @override
@@ -628,6 +735,21 @@ class QuestaoCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
 
                 children: [
+                  if (onSelecionar != null) ...[
+                    SizedBox(
+                      width: 30,
+                      height: 30,
+
+                      child: Checkbox(
+                        value: selecionada,
+                        activeColor: const Color(0xFF6545E8),
+                        onChanged: (_) => onSelecionar!(),
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+                  ],
+
                   Container(
                     width: 30,
                     height: 30,

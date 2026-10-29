@@ -1,6 +1,7 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../models/prova.dart';
 import '../models/questao.dart';
@@ -139,14 +140,26 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
     _escutarQuestoes();
   }
 
-  void _abrirBancoQuestoes() {
-    Navigator.push(
+  Future<void> _abrirBancoQuestoes() async {
+    final resultado = await Navigator.push<List<Questao>>(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            BancoQuestoesScreen(questaoService: _questaoService),
+        builder: (context) => BancoQuestoesScreen(
+          questaoService: _questaoService,
+          modoSelecao: true,
+          selecionadas: _questoesSelecionadas,
+          limite: _quantidadeQuestoes,
+        ),
       ),
     );
+
+    if (!mounted || resultado == null) return;
+
+    setState(() {
+      _questoesSelecionadas
+        ..clear()
+        ..addAll(resultado.map((questao) => questao.id));
+    });
   }
 
   void _alterarQuantidade(int quantidade) {
@@ -190,62 +203,91 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
     _salvar(ProvaStatus.ativa);
   }
 
-  Future<void> _salvar(ProvaStatus status) async {
-    final turma = _turma;
-    if (turma == null || _salvando || !_etapaValida) return;
+  
+Future<void> _salvar(ProvaStatus status) async {
+  final turma = _turma;
 
-    final questoes = _questoesEscolhidas;
+  if (turma == null || _salvando || !_etapaValida) {
+    return;
+  }
 
-    setState(() => _salvando = true);
+  final questoes = _questoesEscolhidas;
 
-    try {
-      await _provaService.criarProva(
-        Prova(
-          id: '',
-          nome: _nome.trim(),
-          turma: turma,
-          dataAplicacao: _dataAplicacao,
+  if (questoes.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Selecione pelo menos uma questão.'),
+      ),
+    );
+    return;
+  }
+
+  setState(() => _salvando = true);
+
+  try {
+    final gabarito = questoes
+        .map((questao) => questao.correta.toUpperCase().trim())
+        .toList();
+
+    final provaCriada = await _provaService.criarProva(
+      Prova(
+        id: '',
+        nome: _nome.trim(),
+        turma: turma,
+        dataAplicacao: _dataAplicacao,
+        quantidadeQuestoes: questoes.length,
+        questoes: questoes,
+        status: status,
+        embaralharQuestoes: _embaralharQuestoes,
+        embaralharAlternativas: _embaralharAlternativas,
+        numeroVersoes: _numeroVersoes,
+        gabaritoOficial: gabarito,
+      ),
+    );
+
+    // QR real: contém o ID atribuído pelo Firebase e o gabarito guardado.
+    final qrCodeData = jsonEncode({
+      'app': 'prova_certa',
+      'tipo': 'gabarito_prova',
+      'versao': 1,
+      'provaId': provaCriada.id,
+      'turmaId': turma.id,
+      'gabarito': gabarito,
+    });
+
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _CriandoProvaScreen(
           quantidadeQuestoes: questoes.length,
-          questoes: questoes,
-          status: status,
-          embaralharQuestoes: _embaralharQuestoes,
-          embaralharAlternativas: _embaralharAlternativas,
-          numeroVersoes: _numeroVersoes,
-          gabaritoOficial: questoes.map((questao) => questao.correta).toList(),
+          rascunho: status == ProvaStatus.rascunho,
+          qrCodeData: qrCodeData,
+          provaId: provaCriada.id,
         ),
-      );
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
 
-      if (!mounted) return;
+    final mensagem = e is ArgumentError
+        ? '${e.message}'
+        : e.toString().replaceFirst('Exception: ', '');
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => _CriandoProvaScreen(
-            quantidadeQuestoes: questoes.length,
-            rascunho: status == ProvaStatus.rascunho,
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      final mensagem = e is ArgumentError
-          ? '${e.message}'
-          : e.toString().replaceFirst('Exception: ', '');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(mensagem),
-          backgroundColor: const Color(0xFFD32F2F),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _salvando = false);
-      }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: const Color(0xFFD32F2F),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _salvando = false);
     }
   }
+}
 
   void _voltar() {
     if (_etapa == 0) {
@@ -1099,32 +1141,18 @@ class _WizardFooter extends StatelessWidget {
   }
 }
 
-class _CriandoProvaScreen extends StatefulWidget {
+class _CriandoProvaScreen extends StatelessWidget {
   final int quantidadeQuestoes;
   final bool rascunho;
+  final String qrCodeData;
+  final String provaId;
 
   const _CriandoProvaScreen({
     required this.quantidadeQuestoes,
     required this.rascunho,
+    required this.qrCodeData,
+    required this.provaId,
   });
-
-  @override
-  State<_CriandoProvaScreen> createState() => _CriandoProvaScreenState();
-}
-
-class _CriandoProvaScreenState extends State<_CriandoProvaScreen> {
-  @override
-  void initState() {
-    super.initState();
-    Timer(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const ProvasScreen()),
-        (route) => false,
-      );
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1132,45 +1160,131 @@ class _CriandoProvaScreenState extends State<_CriandoProvaScreen> {
       backgroundColor: const Color(0xFFF5F7FB),
       body: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 74,
-                height: 74,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD2F8E7),
-                  borderRadius: BorderRadius.circular(22),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 74,
+                  height: 74,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD2F8E7),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: const Icon(
+                    Icons.check,
+                    color: Colors.black,
+                    size: 35,
+                  ),
                 ),
-                child: const Icon(Icons.check, color: Colors.black, size: 35),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                widget.rascunho ? 'Rascunho salvo!' : 'Prova criada!',
-                style: const TextStyle(
-                  color: Color(0xFF101827),
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 18),
+                Text(
+                  rascunho ? 'Rascunho salvo!' : 'Prova criada!',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF101827),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                widget.quantidadeQuestoes == 1
-                    ? 'A prova foi salva com 1 questão.'
-                    : 'A prova foi salva com ${widget.quantidadeQuestoes} questões.',
-                style: const TextStyle(color: Color(0xFF667A96), fontSize: 13),
-              ),
-              const SizedBox(height: 18),
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: Color(0xFF5547EA),
+                const SizedBox(height: 10),
+                Text(
+                  'A prova foi guardada com $quantidadeQuestoes questões.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF667A96),
+                    fontSize: 13,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                SelectableText(
+                  'ID da prova: $provaId',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF52647C),
+                    fontSize: 11,
+                  ),
+                ),
+                if (!rascunho) ...[
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x0D1B2740),
+                          blurRadius: 10,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'QR CODE DA PROVA',
+                          style: TextStyle(
+                            color: Color(0xFF101827),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        QrImageView(
+                          data: qrCodeData,
+                          version: QrVersions.auto,
+                          size: 230,
+                          errorCorrectionLevel: QrErrorCorrectLevel.M,
+                          backgroundColor: Colors.white,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Este código está associado à prova guardada '
+                          'no Firebase e contém o gabarito oficial.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF667A96),
+                            fontSize: 12,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProvasScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6040EB),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    child: const Text(
+                      'Continuar para as provas',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
