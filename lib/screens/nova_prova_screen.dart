@@ -146,6 +146,7 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
       MaterialPageRoute(
         builder: (context) => BancoQuestoesScreen(
           questaoService: _questaoService,
+          modoSelecao: true,
           selecionadas: _questoesSelecionadas,
           limite: _quantidadeQuestoes,
         ),

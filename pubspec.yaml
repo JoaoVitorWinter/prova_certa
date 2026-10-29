@@ -45,7 +45,6 @@ dependencies:
   archive: ^4.5.2
   xml: ^7.0.1
   share_plus: ^13.3.1
-  path_provider: ^2.1.6
   qr_flutter: ^4.1.0
 dev_dependencies:
   flutter_test:

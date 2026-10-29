@@ -1,8 +1,7 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'questao_form_screen.dart';
+
 import '../models/questao.dart';
 import '../services/questao_service.dart';
 import 'questao_form_screen.dart';
@@ -11,487 +10,669 @@ const dificuldades = ['Fácil', 'Médio', 'Difícil'];
 
 class BancoQuestoesScreen extends StatefulWidget {
   final QuestaoService? questaoService;
+
+  // Quando aberto a partir da criação de prova, permite marcar questões
+  // e devolve a lista escolhida com Navigator.pop.
+  final bool modoSelecao;
   final List<String> selecionadas;
   final int limite;
 
   const BancoQuestoesScreen({
     super.key,
     this.questaoService,
+    this.modoSelecao = false,
     this.selecionadas = const [],
     this.limite = 20,
   });
 
   @override
-  State<BancoQuestoesScreen> createState() =>
-      _BancoQuestoesScreenState();
+  State<BancoQuestoesScreen> createState() => _BancoQuestoesScreenState();
 }
 
 class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
-  late final QuestaoService _service;
-  StreamSubscription<List<Questao>>? _subscription;
+  late final QuestaoService questaoService;
+  StreamSubscription<List<Questao>>? assinatura;
 
-  List<Questao> _questoes = [];
-  final Set<String> _selecionadas = {};
+  List<Questao> questoes = [];
+  bool carregando = true;
+  Object? erro;
 
-  String _dificuldade = 'Todas';
-  String _assunto = 'Todos';
-  String? _questaoAberta;
+  String dificuldadeFiltro = 'Todas';
+  String assuntoFiltro = 'Todos';
+  String? questaoAberta;
 
-  bool _carregando = true;
-  Object? _erro;
+  final Set<String> selecionadas = {};
 
   @override
   void initState() {
     super.initState();
-    _service = widget.questaoService ?? QuestaoService();
-    _selecionadas.addAll(widget.selecionadas);
-    _escutarQuestoes();
+    questaoService = widget.questaoService ?? QuestaoService();
+    selecionadas.addAll(widget.selecionadas);
+    escutarQuestoes();
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    assinatura?.cancel();
     super.dispose();
   }
 
-  void _escutarQuestoes() {
-    _subscription?.cancel();
+  void escutarQuestoes() {
+    assinatura?.cancel();
 
-    setState(() {
-      _carregando = true;
-      _erro = null;
-    });
-
-    _subscription = _service.monitorarQuestoes().listen(
-      (questoes) {
-        if (!mounted) return;
-
+    assinatura = questaoService.monitorarQuestoes().listen(
+      (lista) {
         setState(() {
-          _questoes = questoes;
-          _selecionadas.removeWhere(
-            (id) => !questoes.any((q) => q.id == id),
+          questoes = lista;
+          carregando = false;
+
+          selecionadas.removeWhere(
+            (id) => !lista.any((questao) => questao.id == id),
           );
-          _carregando = false;
-          _erro = null;
+
+          if (!assuntos.contains(assuntoFiltro)) {
+            assuntoFiltro = 'Todos';
+          }
         });
       },
-      onError: (Object erro) {
-        if (!mounted) return;
-
+      onError: (Object e) {
         setState(() {
-          _erro = erro;
-          _carregando = false;
+          erro = e;
+          carregando = false;
         });
+      },
+      onDone: () {
+        if (mounted && carregando) {
+          setState(() => carregando = false);
+        }
       },
     );
   }
 
-  List<String> get _assuntos {
-    final resultado = <String>{'Todos'};
+  List<String> get assuntos {
+    final lista = <String>['Todos'];
 
-    for (final questao in _questoes) {
-      if (questao.assunto.trim().isNotEmpty) {
-        resultado.add(questao.assunto);
+    for (final questao in questoes) {
+      if (!lista.contains(questao.assunto)) {
+        lista.add(questao.assunto);
       }
     }
 
-    return resultado.toList();
+    return lista;
   }
 
-  List<Questao> get _filtradas {
-    return _questoes.where((questao) {
-      final dificuldadeOk = _dificuldade == 'Todas' ||
-          questao.dificuldade == _dificuldade;
+  bool passaNoFiltro(Questao questao) {
+    final dificuldadeOk = dificuldadeFiltro == 'Todas' ||
+        questao.dificuldade == dificuldadeFiltro;
 
-      final assuntoOk =
-          _assunto == 'Todos' || questao.assunto == _assunto;
+    final assuntoOk = assuntoFiltro == 'Todos' ||
+        questao.assunto == assuntoFiltro;
 
-      return dificuldadeOk && assuntoOk;
-    }).toList();
+    return dificuldadeOk && assuntoOk;
   }
 
-  void _alternarSelecao(Questao questao) {
-    setState(() {
-      if (_selecionadas.contains(questao.id)) {
-        _selecionadas.remove(questao.id);
-        return;
-      }
-
-      if (_selecionadas.length >= widget.limite) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Pode selecionar no máximo ${widget.limite} questões.',
-            ),
-          ),
-        );
-        return;
-      }
-
-      _selecionadas.add(questao.id);
-    });
+  List<Questao> get questoesFiltradas {
+    return questoes.where(passaNoFiltro).toList();
   }
 
-  void _adicionarAProva() {
-    final resultado = <Questao>[];
-
-    for (final id in _selecionadas) {
-      for (final questao in _questoes) {
-        if (questao.id == id) {
-          resultado.add(questao);
-          break;
-        }
-      }
-    }
-
-    Navigator.pop(context, resultado);
-  }
-
-  Future<void> _abrirFormulario({Questao? questao}) async {
-    final resultado = await Navigator.push<Questao>(
+  Future<void> abrirFormulario({Questao? questao}) async {
+    final salva = await Navigator.push<Questao>(
       context,
       MaterialPageRoute(
-        builder: (_) => QuestaoFormScreen(questao: questao),
+        builder: (context) => QuestaoFormScreen(
+          questao: questao,
+          questaoService: questaoService,
+          assuntosExistentes: assuntos.skip(1).toList(),
+        ),
       ),
     );
 
-    if (!mounted || resultado == null) return;
+    if (salva == null || !mounted) {
+      return;
+    }
 
-    try {
-      if (questao == null) {
-        await _service.criarQuestao(resultado);
-      } else {
-        await _service.atualizarQuestao(resultado);
+    setState(() {
+      if (!passaNoFiltro(salva)) {
+        dificuldadeFiltro = 'Todas';
+        assuntoFiltro = 'Todos';
       }
 
-      if (!mounted) return;
+      questaoAberta = salva.id;
+    });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            questao == null
-                ? 'Questão guardada no Firebase.'
-                : 'Questão atualizada no Firebase.',
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Não foi possível guardar a questão: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (!mounted) {
+      return;
     }
-  }
 
-  Future<void> _excluirQuestao(Questao questao) async {
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Excluir questão'),
-        content: const Text(
-          'Deseja realmente excluir esta questão do banco?',
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          questao == null
+              ? 'Questão criada com sucesso.'
+              : 'Questão atualizada com sucesso.',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Excluir',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
       ),
     );
+  }
 
-    if (confirmar != true) return;
+  Future<void> excluirQuestao(Questao questao) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+
+          title: const Text(
+            'Excluir questão',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          content: const Text(
+            'Essa questão será removida do banco. Deseja continuar?',
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              height: 1.5,
+            ),
+          ),
+
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ),
+
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+
+              child: const Text(
+                'Excluir',
+                style: TextStyle(
+                  color: Color(0xFFEF4444),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmado != true) {
+      return;
+    }
 
     try {
-      await _service.excluirQuestao(questao.id);
-
-      if (!mounted) return;
-
-      setState(() {
-        _selecionadas.remove(questao.id);
-        if (_questaoAberta == questao.id) {
-          _questaoAberta = null;
-        }
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Questão excluída.')),
-      );
+      await questaoService.excluirQuestao(questao.id);
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Não foi possível excluir a questão: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: const Color(0xFFD32F2F),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      questaoAberta = null;
+      selecionadas.remove(questao.id);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Questão excluída.'),
+      ),
+    );
+  }
+
+  void alternarSelecao(Questao questao) {
+    if (selecionadas.contains(questao.id)) {
+      setState(() => selecionadas.remove(questao.id));
+      return;
+    }
+
+    if (selecionadas.length >= widget.limite) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Pode selecionar no máximo ${widget.limite} questões.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => selecionadas.add(questao.id));
+  }
+
+  void adicionarAProva() {
+    final resultado = <Questao>[
+      for (final id in selecionadas)
+        ...questoes.where((questao) => questao.id == id),
+    ];
+
+    Navigator.pop(context, resultado);
+  }
+
+  Widget buildConteudo() {
+    if (carregando) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF6545E8),
         ),
       );
     }
+
+    if (erro != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: Color(0xFFE53935),
+              ),
+
+              const SizedBox(height: 12),
+
+              const Text(
+                'Não foi possível carregar as questões.',
+
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              Text(
+                '$erro',
+                textAlign: TextAlign.center,
+
+                style: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    carregando = true;
+                    erro = null;
+                  });
+
+                  escutarQuestoes();
+                },
+
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6545E8),
+                  foregroundColor: Colors.white,
+                ),
+
+                child: const Text('Tentar novamente'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (questoes.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+
+            children: [
+              Icon(
+                Icons.quiz_outlined,
+                size: 48,
+                color: Color(0xFF94A3B8),
+              ),
+
+              SizedBox(height: 12),
+
+              Text(
+                'Nenhuma questão cadastrada',
+
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+
+              SizedBox(height: 6),
+
+              Text(
+                'Toque em "+ Adicionar" para criar a primeira questão.',
+                textAlign: TextAlign.center,
+
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final filtradas = questoesFiltradas;
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+      itemCount: filtradas.length + 1,
+
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
+
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          final total = filtradas.length;
+
+          final encontradas = Text(
+            total == 1
+                ? '1 questão encontrada'
+                : '$total questões encontradas',
+
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 13,
+            ),
+          );
+
+          if (!widget.modoSelecao) {
+            return encontradas;
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+
+            children: [
+              Text(
+                '${selecionadas.length} de ${widget.limite} questões selecionadas',
+
+                style: const TextStyle(
+                  color: Color(0xFF6545E8),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 4),
+
+              encontradas,
+            ],
+          );
+        }
+
+        final questao = filtradas[index - 1];
+
+        return QuestaoCard(
+          questao: questao,
+          numero: index,
+          aberta: questaoAberta == questao.id,
+          selecionada: selecionadas.contains(questao.id),
+          onSelecionar:
+              widget.modoSelecao ? () => alternarSelecao(questao) : null,
+
+          onToggle: () {
+            setState(() {
+              questaoAberta = questaoAberta == questao.id ? null : questao.id;
+            });
+          },
+
+          onEditar: () => abrirFormulario(questao: questao),
+          onExcluir: () => excluirQuestao(questao),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final questoes = _filtradas;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
+
       appBar: AppBar(
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF6545E8),
         elevation: 0,
+
+        iconTheme: const IconThemeData(
+          color: Color(0xFF6545E8),
+        ),
+
         title: const Text(
           'Banco de Questões',
           style: TextStyle(
             color: Color(0xFF111827),
             fontWeight: FontWeight.bold,
-            fontSize: 17,
+            fontSize: 16,
           ),
         ),
+
         actions: [
-          TextButton(
-            onPressed: () => _abrirFormulario(),
-            child: const Text('+ Adicionar'),
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+
+            child: TextButton(
+              onPressed: () => abrirFormulario(),
+
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF6545E8),
+                backgroundColor: const Color(0xFFEFF2FF),
+
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+
+              child: const Text(
+                '+ Adicionar',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ),
         ],
       ),
+
       body: Column(
         children: [
           Container(
             width: double.infinity,
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            padding: const EdgeInsets.only(top: 12),
+
+            decoration: const BoxDecoration(
+              color: Colors.white,
+
+              border: Border(
+                bottom: BorderSide(
+                  color: Color(0xFFE5E7EB),
+                ),
+              ),
+            ),
+
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+
               children: [
-                Text(
-                  '${_selecionadas.length} de ${widget.limite} questões selecionadas',
-                  style: const TextStyle(
-                    color: Color(0xFF6545E8),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+
                   child: Row(
                     children: [
                       for (final nivel in ['Todas', ...dificuldades])
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
-                          child: _FiltroChip(
-                            texto: nivel,
-                            ativo: _dificuldade == nivel,
+
+                          child: ChipFiltro(
+                            rotulo: nivel,
+                            ativo: dificuldadeFiltro == nivel,
+                            fundo: fundoDificuldade(nivel),
+                            texto: textoDificuldade(nivel),
+
                             onTap: () {
-                              setState(() => _dificuldade = nivel);
+                              setState(() {
+                                dificuldadeFiltro = nivel;
+                              });
                             },
                           ),
                         ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+
+                const SizedBox(height: 12),
+
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+
                   child: Row(
                     children: [
-                      for (final assunto in _assuntos)
+                      for (final assunto in assuntos)
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
-                          child: _FiltroChip(
-                            texto: assunto,
-                            ativo: _assunto == assunto,
+
+                          child: ChipFiltro(
+                            rotulo: assunto,
+                            ativo: assuntoFiltro == assunto,
+                            fundo: const Color(0xFFF1F5F9),
+                            texto: const Color(0xFF64748B),
+                            fundoAtivo: const Color(0xFF0F172A),
+
                             onTap: () {
-                              setState(() => _assunto = assunto);
+                              setState(() {
+                                assuntoFiltro = assunto;
+                              });
                             },
                           ),
                         ),
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 12),
               ],
             ),
           ),
-          Expanded(
-            child: _carregando
-                ? const Center(child: CircularProgressIndicator())
-                : _erro != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'Não foi possível carregar as questões.',
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '$_erro',
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 12),
-                              ElevatedButton(
-                                onPressed: _escutarQuestoes,
-                                child: const Text('Tentar novamente'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : questoes.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Nenhuma questão encontrada no Firebase.',
-                              textAlign: TextAlign.center,
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(14),
-                            itemCount: questoes.length,
-                            itemBuilder: (context, index) {
-                              final questao = questoes[index];
-                              final selecionada =
-                                  _selecionadas.contains(questao.id);
-                              final aberta =
-                                  _questaoAberta == questao.id;
 
-                              return Card(
-                                color: Colors.white,
-                                margin: const EdgeInsets.only(bottom: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Column(
-                                  children: [
-                                    CheckboxListTile(
-                                      value: selecionada,
-                                      activeColor: const Color(0xFF6545E8),
-                                      controlAffinity:
-                                          ListTileControlAffinity.leading,
-                                      title: Text(
-                                        questao.enunciado,
-                                        maxLines: aberta ? null : 3,
-                                        overflow: aberta
-                                            ? TextOverflow.visible
-                                            : TextOverflow.ellipsis,
-                                      ),
-                                      subtitle: Padding(
-                                        padding:
-                                            const EdgeInsets.only(top: 8),
-                                        child: Wrap(
-                                          spacing: 6,
-                                          runSpacing: 6,
-                                          children: [
-                                            _Etiqueta(questao.assunto),
-                                            _Etiqueta(questao.dificuldade),
-                                          ],
-                                        ),
-                                      ),
-                                      onChanged: (_) =>
-                                          _alternarSelecao(questao),
-                                    ),
-                                    if (aberta)
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16, 0, 16, 12,
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            for (final alternativa
-                                                in questao.alternativas)
-                                              ListTile(
-                                                dense: true,
-                                                title: Text(
-                                                  '${alternativa.letra}. ${alternativa.texto}',
-                                                ),
-                                                trailing:
-                                                    alternativa.letra ==
-                                                            questao.correta
-                                                        ? const Icon(
-                                                            Icons.check_circle,
-                                                            color: Colors.green,
-                                                          )
-                                                        : null,
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    const Divider(height: 1),
-                                    Row(
-                                      children: [
-                                        TextButton.icon(
-                                          onPressed: () {
-                                            setState(() {
-                                              _questaoAberta =
-                                                  aberta ? null : questao.id;
-                                            });
-                                          },
-                                          icon: Icon(
-                                            aberta
-                                                ? Icons.expand_less
-                                                : Icons.expand_more,
-                                          ),
-                                          label: Text(
-                                            aberta ? 'Recolher' : 'Ver questão',
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        IconButton(
-                                          tooltip: 'Editar',
-                                          onPressed: () =>
-                                              _abrirFormulario(
-                                            questao: questao,
-                                          ),
-                                          icon: const Icon(Icons.edit_outlined),
-                                        ),
-                                        IconButton(
-                                          tooltip: 'Excluir',
-                                          onPressed: () =>
-                                              _excluirQuestao(questao),
-                                          icon: const Icon(
-                                            Icons.delete_outline,
-                                            color: Colors.red,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+          Expanded(
+            child: buildConteudo(),
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: ElevatedButton.icon(
-            onPressed: _selecionadas.isEmpty ? null : _adicionarAProva,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6545E8),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+
+      bottomNavigationBar: widget.modoSelecao
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+
+                child: ElevatedButton.icon(
+                  onPressed: selecionadas.isEmpty ? null : adicionarAProva,
+
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6545E8),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 50),
+
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+
+                  icon: const Icon(Icons.playlist_add_check),
+                  label: Text(
+                    'Adicionar à prova (${selecionadas.length})',
+                  ),
+                ),
               ),
-            ),
-            icon: const Icon(Icons.playlist_add_check),
-            label: Text(
-              'Adicionar à prova (${_selecionadas.length})',
-            ),
+            )
+          : null,
+    );
+  }
+}
+
+class ChipFiltro extends StatelessWidget {
+  final String rotulo;
+  final bool ativo;
+  final Color fundo;
+  final Color texto;
+  final Color? fundoAtivo;
+  final VoidCallback onTap;
+
+  const ChipFiltro({
+    super.key,
+    required this.rotulo,
+    required this.ativo,
+    required this.fundo,
+    required this.texto,
+    required this.onTap,
+    this.fundoAtivo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 8,
+        ),
+
+        decoration: BoxDecoration(
+          color: ativo ? (fundoAtivo ?? texto) : fundo,
+          borderRadius: BorderRadius.circular(12),
+        ),
+
+        child: Text(
+          rotulo,
+
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: ativo ? Colors.white : texto,
           ),
         ),
       ),
@@ -499,56 +680,347 @@ class _BancoQuestoesScreenState extends State<BancoQuestoesScreen> {
   }
 }
 
-class _FiltroChip extends StatelessWidget {
+class QuestaoCard extends StatelessWidget {
+  final Questao questao;
+  final int numero;
+  final bool aberta;
+  final bool selecionada;
+  final VoidCallback onToggle;
+  final VoidCallback onEditar;
+  final VoidCallback onExcluir;
+  final VoidCallback? onSelecionar;
+
+  const QuestaoCard({
+    super.key,
+    required this.questao,
+    required this.numero,
+    required this.aberta,
+    required this.onToggle,
+    required this.onEditar,
+    required this.onExcluir,
+    this.selecionada = false,
+    this.onSelecionar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+
+        border: Border.all(
+          color: const Color(0xFFF1F5F9),
+        ),
+
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onToggle,
+
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+
+                children: [
+                  if (onSelecionar != null) ...[
+                    SizedBox(
+                      width: 30,
+                      height: 30,
+
+                      child: Checkbox(
+                        value: selecionada,
+                        activeColor: const Color(0xFF6545E8),
+                        onChanged: (_) => onSelecionar!(),
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+                  ],
+
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF2FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+
+                    child: Text(
+                      '$numero',
+
+                      style: const TextStyle(
+                        color: Color(0xFF6545E8),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                      children: [
+                        Text(
+                          aberta ? questao.enunciado : resumo(questao.enunciado),
+
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: Color(0xFF374151),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+
+                          children: [
+                            TagQuestao(
+                              rotulo: questao.assunto,
+                              fundo: const Color(0xFFE0E7FF),
+                              texto: const Color(0xFF3730A3),
+                            ),
+
+                            TagQuestao(
+                              rotulo: questao.dificuldade,
+                              fundo: fundoDificuldade(questao.dificuldade),
+                              texto: textoDificuldade(questao.dificuldade),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+
+                    child: Icon(
+                      aberta
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: const Color(0xFF94A3B8),
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          if (aberta) ...[
+            const Divider(
+              height: 1,
+              color: Color(0xFFF1F5F9),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+
+              child: Column(
+                children: [
+                  for (final alternativa in questao.alternativas)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+
+                      child: AlternativaItem(
+                        letra: alternativa.letra,
+                        texto: alternativa.texto,
+                        correta: alternativa.letra == questao.correta,
+                      ),
+                    ),
+
+                  const SizedBox(height: 4),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: BotaoAcao(
+                          rotulo: 'Editar',
+                          fundo: const Color(0xFFEFF2FF),
+                          texto: const Color(0xFF6545E8),
+                          onTap: onEditar,
+                        ),
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      Expanded(
+                        child: BotaoAcao(
+                          rotulo: 'Excluir',
+                          fundo: const Color(0xFFFEE2E2),
+                          texto: const Color(0xFFEF4444),
+                          onTap: onExcluir,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String resumo(String enunciado) {
+    if (enunciado.length <= 100) {
+      return enunciado;
+    }
+
+    return '${enunciado.substring(0, 100)}…';
+  }
+}
+
+class AlternativaItem extends StatelessWidget {
+  final String letra;
   final String texto;
-  final bool ativo;
+  final bool correta;
+
+  const AlternativaItem({
+    super.key,
+    required this.letra,
+    required this.texto,
+    required this.correta,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+
+      decoration: BoxDecoration(
+        color: correta ? const Color(0xFFD1FAE5) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+
+        border: Border.all(
+          color: correta ? const Color(0xFFA7F3D0) : const Color(0xFFF1F5F9),
+        ),
+      ),
+
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+
+            decoration: BoxDecoration(
+              color: correta ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(8),
+            ),
+
+            child: Text(
+              letra,
+
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: correta ? Colors.white : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 10),
+
+          Expanded(
+            child: Text(
+              texto,
+
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color:
+                    correta ? const Color(0xFF065F46) : const Color(0xFF374151),
+              ),
+            ),
+          ),
+
+          if (correta) ...[
+            const SizedBox(width: 8),
+
+            const Text(
+              '✓ Correto',
+
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF10B981),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class BotaoAcao extends StatelessWidget {
+  final String rotulo;
+  final Color fundo;
+  final Color texto;
   final VoidCallback onTap;
 
-  const _FiltroChip({
+  const BotaoAcao({
+    super.key,
+    required this.rotulo,
+    required this.fundo,
     required this.texto,
-    required this.ativo,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ActionChip(
-      label: Text(texto),
+    return TextButton(
       onPressed: onTap,
-      backgroundColor:
-          ativo ? const Color(0xFF6545E8) : const Color(0xFFF1F5F9),
-      labelStyle: TextStyle(
-        color: ativo ? Colors.white : const Color(0xFF64748B),
-        fontWeight: FontWeight.w600,
+
+      style: TextButton.styleFrom(
+        backgroundColor: fundo,
+        foregroundColor: texto,
+
+        padding: const EdgeInsets.symmetric(vertical: 12),
+
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
-    );
-  }
-}
 
-class _Etiqueta extends StatelessWidget {
-  final String texto;
-
-  const _Etiqueta(this.texto);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF2FF),
-        borderRadius: BorderRadius.circular(8),
-      ),
       child: Text(
-        texto,
+        rotulo,
+
         style: const TextStyle(
-          color: Color(0xFF3730A3),
-          fontSize: 11,
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
   }
 }
-
 
 class TagQuestao extends StatelessWidget {
   final String rotulo;
@@ -566,21 +1038,56 @@ class TagQuestao extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 5,
+        horizontal: 8,
+        vertical: 3,
       ),
+
       decoration: BoxDecoration(
         color: fundo,
         borderRadius: BorderRadius.circular(8),
       ),
+
       child: Text(
         rotulo,
+
         style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
           color: texto,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );
+  }
+}
+
+Color fundoDificuldade(String dificuldade) {
+  switch (dificuldade) {
+    case 'Fácil':
+      return const Color(0xFFD1FAE5);
+
+    case 'Médio':
+      return const Color(0xFFFEF3C7);
+
+    case 'Difícil':
+      return const Color(0xFFFEE2E2);
+
+    default:
+      return const Color(0xFFF1F5F9);
+  }
+}
+
+Color textoDificuldade(String dificuldade) {
+  switch (dificuldade) {
+    case 'Fácil':
+      return const Color(0xFF065F46);
+
+    case 'Médio':
+      return const Color(0xFF92400E);
+
+    case 'Difícil':
+      return const Color(0xFF991B1B);
+
+    default:
+      return const Color(0xFF64748B);
   }
 }

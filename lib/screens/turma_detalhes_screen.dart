@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/aluno.dart';
 import '../models/turma.dart';
 import '../services/turma_service.dart';
+import '../utils/validadores.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'corrigir_prova_screen.dart';
 import 'home_screen.dart';
@@ -582,12 +583,9 @@ class _AlunoFormModalState extends State<_AlunoFormModal> {
     final nome = _nomeController.text.trim();
     final ra = _raController.text.trim();
 
-    if (nome.isEmpty) {
-      setState(() => _erro = 'Informe o nome do aluno.');
-      return;
-    }
-    if (ra.isEmpty) {
-      setState(() => _erro = 'Informe o RA do aluno.');
+    final erro = Validadores.nomeAluno(nome) ?? Validadores.ra(ra);
+    if (erro != null) {
+      setState(() => _erro = erro);
       return;
     }
 
