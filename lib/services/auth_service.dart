@@ -34,7 +34,6 @@ class AuthService {
   User? get currentUser => _auth?.currentUser;
   String? get currentUserId => _auth?.currentUser?.uid;
 
-  /// Realiza o login com e-mail e senha no Firebase Authentication
   Future<User?> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -47,12 +46,9 @@ class AuthService {
 
       final user = credential.user;
       if (user != null) {
-        // Garante que o documento do professor exista no Firestore sem travar o login em caso de falha de rede
         try {
           await garantirDocumentoUsuario(user);
         } catch (e) {
-          // Trata falha de Firestore separadamente da autenticação
-          // ignore: avoid_print
           print('Aviso: Não foi possível sincronizar o perfil no Firestore: $e');
         }
       }
@@ -63,7 +59,6 @@ class AuthService {
     }
   }
 
-  /// Realiza o cadastro de um novo professor no Auth e cria seu perfil em /usuarios/{uid}
   Future<User?> cadastrarProfessor({
     required String nome,
     required String email,
@@ -116,7 +111,6 @@ class AuthService {
     }
   }
 
-  /// Envia e-mail de redefinição de senha oficial pelo Firebase Auth
   Future<void> sendPasswordResetEmail({required String email}) async {
     try {
       await auth.sendPasswordResetEmail(email: email.trim());
@@ -125,12 +119,32 @@ class AuthService {
     }
   }
 
-  /// Encerra a sessão atual
+  Future<String> verificarCodigoRedefinicao(String codigo) async {
+    try {
+      return await auth.verifyPasswordResetCode(codigo.trim());
+    } on FirebaseAuthException catch (e) {
+      throw _converterErroAuth(e);
+    }
+  }
+
+  Future<void> confirmarRedefinicaoSenha({
+    required String codigo,
+    required String novaSenha,
+  }) async {
+    try {
+      await auth.confirmPasswordReset(
+        code: codigo.trim(),
+        newPassword: novaSenha,
+      );
+    } on FirebaseAuthException catch (e) {
+      throw _converterErroAuth(e);
+    }
+  }
+
   Future<void> signOut() async {
     await _auth?.signOut();
   }
 
-  /// Verifica e cria o documento do usuário em /usuarios/{uid} caso não exista
   Future<void> garantirDocumentoUsuario(User user) async {
     if (_firestore == null) return;
     final docRef = firestore.collection('usuarios').doc(user.uid);
@@ -156,7 +170,6 @@ class AuthService {
     }
   }
 
-  /// Monitora os dados cadastrais do professor em tempo real
   Stream<Usuario?> monitorarPerfil(String uid) {
     if (_firestore == null) return const Stream.empty();
     return firestore.collection('usuarios').doc(uid).snapshots().map((doc) {
@@ -165,7 +178,6 @@ class AuthService {
     });
   }
 
-  /// Atualiza os dados cadastrais do professor no Firestore e no Auth
   Future<void> atualizarPerfil({
     required String uid,
     required String nome,
@@ -182,7 +194,6 @@ class AuthService {
     } catch (_) {}
   }
 
-  /// Consulta os dados cadastrais do professor no Firestore
   Future<Usuario?> buscarPerfil(String uid) async {
     if (_firestore == null) return null;
     try {
@@ -196,7 +207,6 @@ class AuthService {
     }
   }
 
-  /// Converte códigos de erro do Firebase Auth em mensagens amigáveis em português
   String _converterErroAuth(FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
@@ -216,9 +226,15 @@ class AuthService {
       case 'email-already-in-use':
         return 'Este e-mail já está cadastrado em outra conta.';
       case 'weak-password':
-        return 'A senha escolhida é muito fraca. Utilize pelo menos 6 caracteres.';
+        return 'A senha escolhida é muito fraca. Use pelo menos 8 caracteres com letras e números.';
       case 'operation-not-allowed':
         return 'O método de login por e-mail e senha não está habilitado no Firebase.';
+      case 'expired-action-code':
+        return 'O link de recuperação expirou. Solicite um novo e-mail.';
+      case 'invalid-action-code':
+        return 'O link ou código de recuperação é inválido ou já foi utilizado.';
+      case 'missing-email':
+        return 'Informe o e-mail institucional.';
       default:
         return e.message ?? 'Ocorreu um erro na autenticação. Tente novamente.';
     }

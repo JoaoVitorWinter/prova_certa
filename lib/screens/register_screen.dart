@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../utils/validadores.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 
@@ -42,26 +43,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   bool _validarFormulario() {
-    final nome = _nomeController.text.trim();
-    final email = _emailController.text.trim();
-    final instituicao = _instituicaoController.text.trim();
     final senha = _senhaController.text;
-    final confirmarSenha = _confirmarSenhaController.text;
+    final erro = Validadores.nomeCompleto(_nomeController.text) ??
+        Validadores.email(_emailController.text) ??
+        Validadores.instituicao(_instituicaoController.text) ??
+        Validadores.novaSenha(senha) ??
+        Validadores.confirmacaoSenha(senha, _confirmarSenhaController.text);
 
-    if (nome.isEmpty) return _erro('Informe o nome completo.');
-    if (email.isEmpty) return _erro('Informe o e-mail institucional.');
-    if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email)) {
-      return _erro('Informe um formato de e-mail válido.');
-    }
-    if (instituicao.isEmpty) return _erro('Informe a instituição de ensino.');
-    if (senha.isEmpty) return _erro('Informe a senha de acesso.');
-    if (senha.length < 6) {
-      return _erro('A senha deve ter pelo menos 6 caracteres.');
-    }
-    if (confirmarSenha.isEmpty) return _erro('Confirme a senha de acesso.');
-    if (senha != confirmarSenha) {
-      return _erro('As senhas informadas não coincidem.');
-    }
+    if (erro != null) return _erro(erro);
     return true;
   }
 
@@ -235,7 +224,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   _buildCampo(
                     label: 'SENHA',
-                    hint: 'Mínimo de 6 caracteres',
+                    hint: 'Mínimo de 8 caracteres, com letras e números',
                     controller: _senhaController,
                     obscureText: _ocultarSenha,
                     suffixIcon: _buildToggleSenha(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../utils/validadores.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
 import 'reset_password_screen.dart';
@@ -36,22 +37,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   bool _validarFormulario() {
-    final email = _emailController.text.trim();
-    final senha = _senhaController.text;
+    final erro = Validadores.email(_emailController.text) ??
+        Validadores.senhaLogin(_senhaController.text);
 
-    if (email.isEmpty) {
-      _mostrarErro('Informe o e-mail institucional.');
-      return false;
-    }
-
-    final emailValido = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email);
-    if (!emailValido) {
-      _mostrarErro('Informe um formato de e-mail válido.');
-      return false;
-    }
-
-    if (senha.isEmpty) {
-      _mostrarErro('Informe a senha de acesso.');
+    if (erro != null) {
+      _mostrarErro(erro);
       return false;
     }
 
@@ -285,8 +275,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) =>
-                                        const ResetPasswordScreen(),
+                                    builder: (context) => ResetPasswordScreen(
+                                      authService: _authService,
+                                    ),
                                   ),
                                 );
                               },

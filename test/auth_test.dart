@@ -402,7 +402,7 @@ void main() {
           password: '123',
         ),
         throwsA(
-          'A senha escolhida é muito fraca. Utilize pelo menos 6 caracteres.',
+          'A senha escolhida é muito fraca. Use pelo menos 8 caracteres com letras e números.',
         ),
       );
 
@@ -450,12 +450,22 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ElevatedButton, 'Criar conta'));
       await tester.pump();
-      expect(find.text('A senha deve ter pelo menos 6 caracteres.'), findsOneWidget);
+      expect(find.text('A senha deve ter pelo menos 8 caracteres.'), findsOneWidget);
       ScaffoldMessenger.of(tester.element(find.byType(RegisterScreen))).removeCurrentSnackBar();
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).at(3), '123456');
-      await tester.enterText(find.byType(TextField).at(4), '654321');
+      await tester.enterText(find.byType(TextField).at(3), '12345678');
+      await tester.enterText(find.byType(TextField).at(4), '12345678');
+      await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'Criar conta'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Criar conta'));
+      await tester.pump();
+      expect(find.text('A senha deve conter letras e números.'), findsOneWidget);
+      ScaffoldMessenger.of(tester.element(find.byType(RegisterScreen))).removeCurrentSnackBar();
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).at(3), 'senha123');
+      await tester.enterText(find.byType(TextField).at(4), 'senha321');
       await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'Criar conta'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ElevatedButton, 'Criar conta'));
@@ -464,7 +474,7 @@ void main() {
       ScaffoldMessenger.of(tester.element(find.byType(RegisterScreen))).removeCurrentSnackBar();
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).at(4), '123456');
+      await tester.enterText(find.byType(TextField).at(4), 'senha123');
       await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'Criar conta'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ElevatedButton, 'Criar conta'));
