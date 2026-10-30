@@ -396,11 +396,8 @@ RA,Nome
       );
       await tester.pumpAndSettle();
 
-      // Inicialmente 0 turmas no card de Turmas
-      expect(find.text('0'), findsOneWidget);
-      // Provas (4) e questões (10) permanecem mockadas
-      expect(find.text('4'), findsOneWidget);
-      expect(find.text('10'), findsOneWidget);
+      // Inicialmente 0 registros nos três indicadores reais (Turmas, Provas e Questões)
+      expect(find.text('0'), findsNWidgets(3));
 
       // Cria uma turma no serviço
       await service.criarTurma(
