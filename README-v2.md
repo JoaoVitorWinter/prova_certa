@@ -838,6 +838,16 @@ Esta seção registra **as tarefas efetivamente realizadas na N2**, organizadas 
 | Configurar a conexão do aplicativo com o serviço de backend/banco e validar leitura e escrita de dados pelo projeto. | 15/10 | Concluído |
 | Revisar Pull Requests de integrantes da equipe, analisando código, organização e aderência aos requisitos. | 29/10 | Concluído (foram 7 PRs no total) |
 
+### *Carlos Henrique Lechner*
+
+| Tarefa | Prazo | Status |
+| --- | --- | --- |
+| Implementar os resultados por aluno e por questão, substituindo os resultados mockados por dados reais salvos no Firestore e exibindo o desempenho geral, por questão e por aluno. | 30/10 | Concluído |
+| Exportar as notas em CSV (compatível com o Excel), gerando os arquivos de notas dos alunos e de análise por questão e disponibilizando-os para compartilhamento. | 30/10 | Concluído |
+| Atualizar o dashboard da Home com dados reais das correções: provas corrigidas, folhas corrigidas e correções recentes com a média de cada prova. | 30/10 | Concluído |
+| Executar os testes gerais, corrigir os bugs encontrados e atualizar o README com a integração dos resultados e da exportação. | 30/10 | Concluído |
+| Corrigir o erro de exportação no navegador (`MissingPluginException` do `path_provider`), enviando o CSV direto da memória para o compartilhamento. | 30/10 | Concluído |
+
 ---
 
 ## Identificação e Considerações Finais
