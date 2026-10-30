@@ -801,9 +801,18 @@ O APK precisa ser instalado em um dispositivo Android compatível. Para autentic
 
 📌 **N2**
 
-Esta seção deve registrar **as tarefas efetivamente realizadas na N2**, organizadas por integrante, com prazo e situação. Como os arquivos enviados não informam a relação completa da equipe nem o histórico consolidado do backlog da N2, os campos permanecem identificados para preenchimento com os registros reais do grupo.
+Esta seção registra **as tarefas efetivamente realizadas na N2**, organizadas por integrante, com prazo e situação, conforme o histórico de commits e Pull Requests do repositório.
 
 <!-- Repita o bloco para cada integrante, preenchendo com as tarefas reais da N2. -->
+
+### *Gabriel Fellipe Marquardt*
+
+| Tarefa | Prazo | Status |
+| --- | --- | --- |
+| Implementar o CRUD de questões, salvando o banco de questões em dados persistidos e permitindo cadastrar, editar, consultar e excluir questões. | 30/10 | Concluído |
+| Integrar as questões à criação de provas, permitindo selecionar questões persistidas no banco e vinculá-las corretamente à prova em criação. | 30/10 | Concluído |
+| Implementar o fluxo de recuperação de senha e completar as validações de login, senha e formulários do aplicativo. | 30/10 | Concluído |
+| Persistir a criação e a gestão de provas, salvando no banco seus dados, status e questões, além de carregar a listagem e os filtros usando dados reais. | 30/10 | Concluído |
 
 ### *Mateus Zeviani Rodrigues*
 
