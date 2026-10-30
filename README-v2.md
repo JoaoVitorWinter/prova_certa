@@ -836,7 +836,7 @@ Esta seção registra **as tarefas efetivamente realizadas na N2**, organizadas 
 | Criar a conta que será usada pelo grupo no serviço de backend/banco, configurar acesso e compartilhar as credenciais de forma organizada entre os integrantes. | 15/10 | Concluído (detalhe: reformulamos para criar o projeto e apenas compartilhá-lo entre integrantes. Motivo: se torna mais simples de acessar e gerenciar) |
 | Criar o banco do projeto e realizar as configurações iniciais necessárias para desenvolvimento e testes. | 15/10 | Concluído |
 | Configurar a conexão do aplicativo com o serviço de backend/banco e validar leitura e escrita de dados pelo projeto. | 15/10 | Concluído |
-| Revisar Pull Requests de integrantes da equipe, analisando código, organização e aderência aos requisitos. | 15/10 | Concluído (foram 7 PRs no total) |
+| Revisar Pull Requests de integrantes da equipe, analisando código, organização e aderência aos requisitos. | 29/10 | Concluído (foram 7 PRs no total) |
 
 ---
 
