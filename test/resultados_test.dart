@@ -257,7 +257,7 @@ void main() {
       expect(find.text('certa: D'), findsOneWidget);
     });
 
-    testWidgets('Folhas: lê uma folha por aluno da turma e salva a correção', (
+    testWidgets('Folhas: exibe progresso inicial e orientação para fotografia da folha', (
       tester,
     ) async {
       final resultados = FakeResultadoService();
@@ -275,49 +275,94 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('0/2'), findsOneWidget);
-      expect(find.text('Próxima folha: Ana Souza'), findsOneWidget);
-
-      await tester.tap(find.text('Ler folha'));
-      await tester.pumpAndSettle();
-      expect(find.text('1/2'), findsOneWidget);
-      expect(find.text('Finalizar com 1 folha'), findsOneWidget);
-
-      await tester.tap(find.text('Ler folha'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Finalizar correção'));
-      await tester.pumpAndSettle();
-
-      expect(resultados.salvamentos.single.map((r) => r.aluno.nome), [
-        'Ana Souza',
-        'Carla Dias',
-      ]);
-      expect(resultados.salvamentos.single.first.provaId, 'p1');
-      expect(find.byType(CorrecaoConcluidaScreen), findsOneWidget);
-      expect(find.text('Média da turma'), findsOneWidget);
+      expect(find.text('Folhas de resposta'), findsOneWidget);
+      expect(find.text('Folha 1: confirme o nome do aluno'), findsOneWidget);
+      expect(find.text('Fotografar folha'), findsOneWidget);
+      expect(find.text('Captura e conferência da folha'), findsOneWidget);
     });
 
-    testWidgets('Folhas: avisa quando não consegue salvar no servidor', (
+    testWidgets('CorrecaoConcluidaScreen: exibe resumo e avisa quando não foi possível salvar', (
       tester,
     ) async {
+      final resultado = ResultadoProva.calcular(
+        prova: _prova,
+        gabarito: _gabarito,
+        porAluno: [
+          ResultadoAluno.corrigir(
+            aluno: _ana,
+            respostas: ['A', 'B', 'C', 'D'],
+            gabarito: _gabarito,
+          ),
+        ],
+      );
+
+      // Cenário com falha ao salvar: exibe o aviso em destaque
       await tester.pumpWidget(
         MaterialApp(
-          home: FolhasScreen(
+          home: CorrecaoConcluidaScreen(
             prova: _prova,
-            gabarito: _gabarito,
-            turmaService: _FakeTurmaAlunos([_ana]),
-            resultadoService: FakeResultadoService(falharAoSalvar: true),
+            folhasCorrigidas: 1,
+            totalAcertos: 4,
+            totalQuestoes: 4,
+            resultado: resultado,
+            salvo: false,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Ler folha'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Finalizar correção'));
+      expect(find.byType(CorrecaoConcluidaScreen), findsOneWidget);
+      expect(find.text('Correção concluída!'), findsOneWidget);
+      expect(find.textContaining('Não foi possível salvar no servidor'), findsOneWidget);
+
+      // Cenário com sucesso: exibe média da turma sem aviso
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CorrecaoConcluidaScreen(
+            prova: _prova,
+            folhasCorrigidas: 1,
+            totalAcertos: 4,
+            totalQuestoes: 4,
+            resultado: resultado,
+            salvo: true,
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Não foi possível salvar'), findsOneWidget);
+      expect(find.text('Média da turma'), findsOneWidget);
+      expect(find.textContaining('Não foi possível salvar'), findsNothing);
+    });
+
+    test('ResultadoService: salva correção atualizando resumo e resultados por aluno', () async {
+      final resultados = FakeResultadoService();
+      final listaAlunos = [
+        ResultadoAluno.corrigir(
+          aluno: _ana,
+          respostas: ['A', 'B', 'C', 'D'],
+          gabarito: _gabarito,
+          provaId: _prova.id,
+        ),
+        ResultadoAluno.corrigir(
+          aluno: _carla,
+          respostas: ['A', 'B', 'C', 'A'],
+          gabarito: _gabarito,
+          provaId: _prova.id,
+        ),
+      ];
+
+      final resultado = await resultados.salvarCorrecao(
+        prova: _prova,
+        gabarito: _gabarito,
+        resultados: listaAlunos,
+      );
+
+      expect(resultado.porAluno, hasLength(2));
+      expect(resultados.salvamentos.single.map((r) => r.aluno.nome), [
+        'Ana Souza',
+        'Carla Dias',
+      ]);
+      expect(resultados.salvamentos.single.first.provaId, 'p1');
     });
 
     testWidgets('Home: métricas e correções recentes vêm dos resultados', (

@@ -397,7 +397,8 @@ void main() {
 
       await tester.pumpWidget(const MaterialApp(home: CorrigirProvaScreen()));
       await tester.pumpAndSettle();
-      expect(find.text('Demonstrativo'), findsOneWidget);
+      expect(find.text('Demonstrativo'), findsNothing);
+      expect(find.text('Como funciona'), findsOneWidget);
     });
   });
 }

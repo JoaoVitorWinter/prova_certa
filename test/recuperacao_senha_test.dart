@@ -71,8 +71,10 @@ Future<void> abrirTela(
 }
 
 Future<void> tocar(WidgetTester tester, String texto) async {
-  await tester.ensureVisible(find.text(texto));
-  await tester.tap(find.text(texto));
+  final botao = find.widgetWithText(ElevatedButton, texto);
+  final alvo = botao.evaluate().isNotEmpty ? botao : find.text(texto);
+  await tester.ensureVisible(alvo);
+  await tester.tap(alvo);
   await tester.pump();
 }
 
