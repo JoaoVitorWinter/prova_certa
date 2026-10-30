@@ -848,6 +848,14 @@ Esta seção registra **as tarefas efetivamente realizadas na N2**, organizadas 
 | Executar os testes gerais, corrigir os bugs encontrados e atualizar o README com a integração dos resultados e da exportação. | 30/10 | Concluído |
 | Corrigir o erro de exportação no navegador (`MissingPluginException` do `path_provider`), enviando o CSV direto da memória para o compartilhamento. | 30/10 | Concluído |
 
+### *Kayky Rocha*
+
+| Tarefa | Prazo | Status |
+| --- | --- | --- |
+| Implementar geração das versões da prova, respeitando as opções de embaralhar questões e alternativas. | 30/10 | Concluído |
+| Revisar o fluxo de leitura do gabarito por QR Code e melhorar a leitura da folha, incluindo validações de enquadramento e marcações. | 30/10 | Concluído |
+| Persistir no banco os resultados obtidos na correção, relacionando prova, aluno, respostas, acertos e nota. | 30/10 | Concluído |
+
 ---
 
 ## Identificação e Considerações Finais
