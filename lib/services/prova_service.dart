@@ -47,6 +47,9 @@ class ProvaService {
   }
 
   void _validar(Prova prova) {
+    if (prova.numeroVersoes < 1 || prova.numeroVersoes > 4) {
+      throw ArgumentError('O número de versões deve estar entre 1 e 4.');
+    }
     if (prova.nome.trim().isEmpty) {
       throw ArgumentError('O nome da prova é obrigatório.');
     }

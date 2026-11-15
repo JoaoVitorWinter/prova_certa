@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../models/prova.dart';
 import '../models/questao.dart';
@@ -9,8 +7,10 @@ import '../models/turma.dart';
 import '../services/prova_service.dart';
 import '../services/questao_service.dart';
 import '../services/turma_service.dart';
+import '../services/geracao_versoes_service.dart';
 import 'banco_questoes_screen.dart';
 import 'provas_screen.dart';
+import 'versoes_prova_screen.dart';
 
 class NovaProvaScreen extends StatefulWidget {
   final ProvaService? provaService;
@@ -203,91 +203,85 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
     _salvar(ProvaStatus.ativa);
   }
 
-  
-Future<void> _salvar(ProvaStatus status) async {
-  final turma = _turma;
+  Future<void> _salvar(ProvaStatus status) async {
+    final turma = _turma;
 
-  if (turma == null || _salvando || !_etapaValida) {
-    return;
-  }
+    if (turma == null || _salvando || !_etapaValida) {
+      return;
+    }
 
-  final questoes = _questoesEscolhidas;
+    final questoes = _questoesEscolhidas;
 
-  if (questoes.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Selecione pelo menos uma questão.'),
-      ),
-    );
-    return;
-  }
+    if (questoes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione pelo menos uma questão.')),
+      );
+      return;
+    }
 
-  setState(() => _salvando = true);
+    setState(() => _salvando = true);
 
-  try {
-    final gabarito = questoes
-        .map((questao) => questao.correta.toUpperCase().trim())
-        .toList();
-
-    final provaCriada = await _provaService.criarProva(
-      Prova(
-        id: '',
-        nome: _nome.trim(),
-        turma: turma,
-        dataAplicacao: _dataAplicacao,
-        quantidadeQuestoes: questoes.length,
+    try {
+      final gabarito = questoes
+          .map((questao) => questao.correta.toUpperCase().trim())
+          .toList();
+      final versoes = GeracaoVersoesService().gerarVersoes(
         questoes: questoes,
-        status: status,
         embaralharQuestoes: _embaralharQuestoes,
         embaralharAlternativas: _embaralharAlternativas,
         numeroVersoes: _numeroVersoes,
-        gabaritoOficial: gabarito,
-      ),
-    );
+      );
 
-    // QR real: contém o ID atribuído pelo Firebase e o gabarito guardado.
-    final qrCodeData = jsonEncode({
-      'app': 'prova_certa',
-      'tipo': 'gabarito_prova',
-      'versao': 1,
-      'provaId': provaCriada.id,
-      'turmaId': turma.id,
-      'gabarito': gabarito,
-    });
-
-    if (!mounted) return;
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => _CriandoProvaScreen(
+      final provaCriada = await _provaService.criarProva(
+        Prova(
+          id: '',
+          nome: _nome.trim(),
+          turma: turma,
+          dataAplicacao: _dataAplicacao,
           quantidadeQuestoes: questoes.length,
-          rascunho: status == ProvaStatus.rascunho,
-          qrCodeData: qrCodeData,
-          provaId: provaCriada.id,
+          questoes: questoes,
+          status: status,
+          embaralharQuestoes: _embaralharQuestoes,
+          embaralharAlternativas: _embaralharAlternativas,
+          numeroVersoes: _numeroVersoes,
+          versoes: versoes,
+          gabaritoOficial: gabarito,
         ),
-      ),
-    );
-  } catch (e) {
-    if (!mounted) return;
+      );
 
-    final mensagem = e is ArgumentError
-        ? '${e.message}'
-        : e.toString().replaceFirst('Exception: ', '');
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensagem),
-        backgroundColor: const Color(0xFFD32F2F),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  } finally {
-    if (mounted) {
-      setState(() => _salvando = false);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => _CriandoProvaScreen(
+            quantidadeQuestoes: questoes.length,
+            numeroVersoes: provaCriada.numeroVersoes,
+            rascunho: status == ProvaStatus.rascunho,
+            prova: provaCriada,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      final mensagem = e is ArgumentError
+          ? '${e.message}'
+          : e.toString().replaceFirst('Exception: ', '');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(mensagem),
+          backgroundColor: const Color(0xFFD32F2F),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _salvando = false);
+      }
     }
   }
-}
 
   void _voltar() {
     if (_etapa == 0) {
@@ -1143,15 +1137,15 @@ class _WizardFooter extends StatelessWidget {
 
 class _CriandoProvaScreen extends StatelessWidget {
   final int quantidadeQuestoes;
+  final int numeroVersoes;
   final bool rascunho;
-  final String qrCodeData;
-  final String provaId;
+  final Prova prova;
 
   const _CriandoProvaScreen({
     required this.quantidadeQuestoes,
+    required this.numeroVersoes,
     required this.rascunho,
-    required this.qrCodeData,
-    required this.provaId,
+    required this.prova,
   });
 
   @override
@@ -1173,11 +1167,7 @@ class _CriandoProvaScreen extends StatelessWidget {
                     color: const Color(0xFFD2F8E7),
                     borderRadius: BorderRadius.circular(22),
                   ),
-                  child: const Icon(
-                    Icons.check,
-                    color: Colors.black,
-                    size: 35,
-                  ),
+                  child: const Icon(Icons.check, color: Colors.black, size: 35),
                 ),
                 const SizedBox(height: 18),
                 Text(
@@ -1199,63 +1189,32 @@ class _CriandoProvaScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                SelectableText(
-                  'ID da prova: $provaId',
+                Text(
+                  '$numeroVersoes ${numeroVersoes == 1 ? 'versão foi gerada.' : 'versões foram geradas.'}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Color(0xFF52647C),
-                    fontSize: 11,
+                    color: Color(0xFF667A96),
+                    fontSize: 13,
                   ),
                 ),
-                if (!rascunho) ...[
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0D1B2740),
-                          blurRadius: 10,
-                          offset: Offset(0, 3),
+                const SizedBox(height: 24),
+                if (!rascunho)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              VersoesProvaScreen(prova: prova),
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'QR CODE DA PROVA',
-                          style: TextStyle(
-                            color: Color(0xFF101827),
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        QrImageView(
-                          data: qrCodeData,
-                          version: QrVersions.auto,
-                          size: 230,
-                          errorCorrectionLevel: QrErrorCorrectLevel.M,
-                          backgroundColor: Colors.white,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Este código está associado à prova guardada '
-                          'no Firebase e contém o gabarito oficial.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Color(0xFF667A96),
-                            fontSize: 12,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
+                      ),
+                      icon: const Icon(Icons.view_carousel_outlined),
+                      label: const Text('Visualizar versões'),
                     ),
                   ),
-                ],
-                const SizedBox(height: 24),
+                if (!rascunho) const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
                   height: 48,

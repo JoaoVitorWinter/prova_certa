@@ -12,7 +12,7 @@ import 'nova_prova_screen.dart';
 import 'resultados_screen.dart';
 import 'turmas_screen.dart';
 import 'corrigir_prova_screen.dart';
-import 'qr_prova_screen.dart';
+import 'versoes_prova_screen.dart';
 
 class ProvasScreen extends StatefulWidget {
   final ProvaService? provaService;
@@ -216,12 +216,12 @@ class _ProvasScreenState extends State<ProvasScreen> {
             ),
             ListTile(
               leading: const Icon(
-                Icons.qr_code_2_rounded,
+                Icons.view_carousel_outlined,
                 color: Color(0xFF5146EE),
               ),
-              title: const Text('Ver QR Code da prova'),
-              subtitle: const Text('Abrir novamente o código desta prova'),
-              onTap: () => Navigator.pop(context, 'qr'),
+              title: const Text('Visualizar versões'),
+              subtitle: const Text('Baixar uma ou todas as versões em PDF'),
+              onTap: () => Navigator.pop(context, 'versoes'),
             ),
             for (final acao in acoes)
               ListTile(
@@ -248,12 +248,11 @@ class _ProvasScreenState extends State<ProvasScreen> {
 
     if (!mounted || escolha == null) return;
 
-    if (escolha == 'qr') {
-      if (!mounted) return;
+    if (escolha == 'versoes') {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => QrProvaScreen(prova: prova),
+          builder: (context) => VersoesProvaScreen(prova: prova),
         ),
       );
     } else if (escolha is ProvaStatus) {
