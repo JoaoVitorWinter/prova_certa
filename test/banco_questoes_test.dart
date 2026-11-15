@@ -172,7 +172,11 @@ void main() {
       }
       await tester.pump();
 
-      await tester.ensureVisible(find.text('Criar questão'));
+      await tester.scrollUntilVisible(
+        find.text('Criar questão'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('Criar questão'));
       await tester.pumpAndSettle();
 
@@ -199,7 +203,11 @@ void main() {
       }
       await tester.pump();
 
-      await tester.ensureVisible(find.text('Criar questão'));
+      await tester.scrollUntilVisible(
+        find.text('Criar questão'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('Criar questão'));
       await tester.pumpAndSettle();
 
@@ -223,7 +231,11 @@ void main() {
       );
       await tester.pump();
 
-      await tester.ensureVisible(find.text('Salvar alterações'));
+      await tester.scrollUntilVisible(
+        find.text('Salvar alterações'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('Salvar alterações'));
       await tester.pumpAndSettle();
 
