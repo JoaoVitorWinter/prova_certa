@@ -100,7 +100,7 @@ class GeracaoVersoesService {
       }
 
       final List<String> gabarito = questoesProcessadas
-          .map((questao) => questao.correta)
+          .map((questao) => questao.correta.toUpperCase().trim())
           .toList();
 
       versoes.add(

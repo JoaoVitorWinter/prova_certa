@@ -62,11 +62,11 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
       case 0:
         return _nome.trim().isNotEmpty && _turma != null;
       case 1:
-        return _questoesSelecionadas.isNotEmpty;
+        return _questoesSelecionadas.length == _quantidadeQuestoes;
       default:
         return _nome.trim().isNotEmpty &&
             _turma != null &&
-            _questoesSelecionadas.isNotEmpty;
+            _questoesSelecionadas.length == _quantidadeQuestoes;
     }
   }
 
@@ -212,9 +212,9 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
 
     final questoes = _questoesEscolhidas;
 
-    if (questoes.isEmpty) {
+    if (questoes.length != _quantidadeQuestoes) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecione pelo menos uma questão.')),
+        SnackBar(content: Text('A prova precisa ter exatamente $_quantidadeQuestoes questões; ${questoes.length} selecionadas.')),
       );
       return;
     }
@@ -238,7 +238,7 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
           nome: _nome.trim(),
           turma: turma,
           dataAplicacao: _dataAplicacao,
-          quantidadeQuestoes: questoes.length,
+          quantidadeQuestoes: _quantidadeQuestoes,
           questoes: questoes,
           status: status,
           embaralharQuestoes: _embaralharQuestoes,
@@ -255,7 +255,7 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => _CriandoProvaScreen(
-            quantidadeQuestoes: questoes.length,
+            quantidadeQuestoes: _quantidadeQuestoes,
             numeroVersoes: provaCriada.numeroVersoes,
             rascunho: status == ProvaStatus.rascunho,
             prova: provaCriada,
@@ -721,7 +721,8 @@ class _QuestoesStep extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              '${selecionadas.length} de $limite questões selecionadas',
+              '${selecionadas.length} de $limite questões selecionadas'
+              '${questoes.length < limite ? ' — o banco tem apenas ${questoes.length}. Cadastre mais questões ou reduza a quantidade.' : ''}',
               style: const TextStyle(color: Color(0xFF91A0B5), fontSize: 11),
             ),
           ),
