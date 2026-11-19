@@ -90,7 +90,7 @@ service cloud.firestore {
             'id', 'nome', 'turmaId', 'turmaNome', 'turmaAno', 'turmaDisciplina', 'turmaPeriodo',
             'dataAplicacao', 'quantidadeQuestoes', 'status', 'embaralharQuestoes',
             'embaralharAlternativas', 'numeroVersoes', 'questoesIds', 'questoesSnapshot',
-            'gabaritoOficial', 'resumoResultado', 'criadoEm', 'atualizadoEm'
+            'versoes', 'gabaritoOficial', 'resumoResultado', 'criadoEm', 'atualizadoEm'
           ])
           && request.resource.data.nome is string && request.resource.data.nome.size() > 0
           && request.resource.data.turmaId is string && request.resource.data.turmaId.size() > 0
@@ -101,6 +101,7 @@ service cloud.firestore {
           && (!('numeroVersoes' in request.resource.data) || request.resource.data.numeroVersoes is number)
           && (!('questoesIds' in request.resource.data) || request.resource.data.questoesIds is list)
           && (!('questoesSnapshot' in request.resource.data) || request.resource.data.questoesSnapshot is list)
+          && (!('versoes' in request.resource.data) || request.resource.data.versoes is list)
           && (!('gabaritoOficial' in request.resource.data) || request.resource.data.gabaritoOficial is list);
 
         // ------------------------------------------------------

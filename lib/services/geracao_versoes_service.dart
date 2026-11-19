@@ -3,26 +3,7 @@ import 'dart:math';
 
 import '../models/alternativa.dart';
 import '../models/questao.dart';
-
-class VersaoProva {
-  final int numero;
-  final List<Questao> questoes;
-  final List<String> gabarito;
-
-  const VersaoProva({
-    required this.numero,
-    required this.questoes,
-    required this.gabarito,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'numero': numero,
-      'questoes': questoes.map((q) => q.toMap()).toList(),
-      'gabarito': gabarito,
-    };
-  }
-}
+import '../models/versao_prova.dart';
 
 class GeracaoVersoesService {
   final Random _random;
@@ -40,9 +21,9 @@ class GeracaoVersoesService {
       throw ArgumentError('Selecione pelo menos uma questão.');
     }
 
-    if (numeroVersoes < 1) {
+    if (numeroVersoes < 1 || numeroVersoes > 4) {
       throw ArgumentError(
-        'O número de versões deve ser maior que zero.',
+        'O número de versões deve estar entre 1 e 4.',
       );
     }
 

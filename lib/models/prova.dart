@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'questao.dart';
 import 'turma.dart';
+import 'versao_prova.dart';
 
 DateTime? _parseDateTime(dynamic value) {
   if (value == null) return null;
@@ -25,6 +26,7 @@ class Prova {
   final bool embaralharQuestoes;
   final bool embaralharAlternativas;
   final int numeroVersoes;
+  final List<VersaoProva>? versoes;
   final List<String>? gabaritoOficial;
   final List<String>? questoesIds;
   final Map<String, dynamic>? resumoResultado;
@@ -42,6 +44,7 @@ class Prova {
     this.embaralharQuestoes = false,
     this.embaralharAlternativas = false,
     this.numeroVersoes = 1,
+    this.versoes,
     this.gabaritoOficial,
     this.questoesIds,
     this.resumoResultado,
@@ -96,6 +99,7 @@ class Prova {
       'embaralharQuestoes': embaralharQuestoes,
       'embaralharAlternativas': embaralharAlternativas,
       'numeroVersoes': numeroVersoes,
+      'versoes': versoes?.map((versao) => versao.toMap()).toList(),
       'questoesIds': extrairQuestoesIds(),
       'questoesSnapshot': extrairQuestoesSnapshot(),
       'gabaritoOficial': gabaritoOficial,
@@ -119,6 +123,8 @@ class Prova {
       'embaralharQuestoes': embaralharQuestoes,
       'embaralharAlternativas': embaralharAlternativas,
       'numeroVersoes': numeroVersoes,
+      if (versoes != null)
+        'versoes': versoes!.map((versao) => versao.toMap()).toList(),
       'questoesIds': extrairQuestoesIds(),
       'questoesSnapshot': extrairQuestoesSnapshot(),
       if (gabaritoOficial != null) 'gabaritoOficial': gabaritoOficial,
@@ -166,6 +172,12 @@ class Prova {
     final rawGabarito = map['gabaritoOficial'] as List<dynamic>?;
     final parsedGabarito = rawGabarito?.map((e) => e.toString()).toList();
 
+    final rawVersoes = map['versoes'] as List<dynamic>?;
+    final parsedVersoes = rawVersoes
+        ?.whereType<Map>()
+        .map((item) => VersaoProva.fromMap(Map<String, dynamic>.from(item)))
+        .toList();
+
     final parsedResumo = map['resumoResultado'] is Map
         ? Map<String, dynamic>.from(map['resumoResultado'] as Map)
         : null;
@@ -181,6 +193,7 @@ class Prova {
       embaralharQuestoes: map['embaralharQuestoes'] as bool? ?? false,
       embaralharAlternativas: map['embaralharAlternativas'] as bool? ?? false,
       numeroVersoes: (map['numeroVersoes'] as num?)?.toInt() ?? 1,
+      versoes: parsedVersoes,
       gabaritoOficial: parsedGabarito,
       questoesIds: parsedIds,
       resumoResultado: parsedResumo,
@@ -209,6 +222,7 @@ class Prova {
     bool? embaralharQuestoes,
     bool? embaralharAlternativas,
     int? numeroVersoes,
+    List<VersaoProva>? versoes,
     List<String>? gabaritoOficial,
     List<String>? questoesIds,
     Map<String, dynamic>? resumoResultado,
@@ -226,6 +240,7 @@ class Prova {
       embaralharQuestoes: embaralharQuestoes ?? this.embaralharQuestoes,
       embaralharAlternativas: embaralharAlternativas ?? this.embaralharAlternativas,
       numeroVersoes: numeroVersoes ?? this.numeroVersoes,
+      versoes: versoes ?? this.versoes,
       gabaritoOficial: gabaritoOficial ?? this.gabaritoOficial,
       questoesIds: questoesIds ?? this.questoesIds,
       resumoResultado: resumoResultado ?? this.resumoResultado,
