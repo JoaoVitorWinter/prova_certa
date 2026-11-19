@@ -1,11 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../models/prova.dart';
 import '../models/resultado.dart';
 
-/// Persiste e consulta os resultados das correções no Firestore:
+/// Persiste e consulta os resultados das correÃ§Ãµes no Firestore:
 /// - usuarios/{uid}/provas/{provaId}                    -> resumoResultado + gabaritoOficial
 /// - usuarios/{uid}/provas/{provaId}/resultados/{alunoId} -> resultado individual
 class ResultadoService {
@@ -20,7 +20,7 @@ class ResultadoService {
 
   FirebaseFirestore get firestore {
     if (_firestore == null) {
-      throw StateError('Firestore não foi inicializado.');
+      throw StateError('Firestore nÃ£o foi inicializado.');
     }
     return _firestore;
   }
@@ -49,7 +49,7 @@ class ResultadoService {
     return _provasRef(userId).doc(provaId).collection('resultados');
   }
 
-  /// Calcula as estatísticas da correção e grava tudo em um único batch.
+  /// Calcula as estatÃ­sticas da correÃ§Ã£o e grava tudo em um Ãºnico batch.
   /// Corrigir a mesma prova de novo sobrescreve o resultado de cada aluno.
   Future<ResultadoProva> salvarCorrecao({
     required Prova prova,
@@ -73,17 +73,34 @@ class ResultadoService {
       porAluno: porAluno.values.toList(),
     );
 
+    // O status vigente vem do Firestore (não do objeto recebido, que pode estar
+    // defasado), para uma recorreção nunca reabrir/alterar a prova sem querer.
+    final provaDoc = await provaRef.get();
+    final statusAtual = provaDoc.exists
+        ? Prova.fromFirestore(provaDoc).status
+        : prova.status;
+
+    // Encerra automaticamente só se a prova está ativa e todos os alunos da
+    // turma (comparando IDs) já têm resultado, incluindo os que estão sendo salvos.
+    var encerrar = false;
+    if (statusAtual == ProvaStatus.ativa) {
+      final alunosIds = await _listarAlunosIds(uid, prova.turma.id);
+      encerrar =
+          alunosIds.isNotEmpty && alunosIds.every(porAluno.containsKey);
+    }
+
+    final dados = prova
+        .copyWith(
+          gabaritoOficial: gabarito,
+          resumoResultado: resultado.toFirestoreResumo(),
+        )
+        .toFirestore();
+    dados['status'] = (encerrar ? ProvaStatus.encerrada : statusAtual).name;
+    if (encerrar) dados['atualizadoEm'] = FieldValue.serverTimestamp();
+
+    // Resultados e status vão no mesmo batch: ou tudo é gravado, ou nada.
     final batch = firestore.batch();
-    batch.set(
-      provaRef,
-      prova
-          .copyWith(
-            gabaritoOficial: gabarito,
-            resumoResultado: resultado.toFirestoreResumo(),
-          )
-          .toFirestore(),
-      SetOptions(merge: true),
-    );
+    batch.set(provaRef, dados, SetOptions(merge: true));
 
     for (final r in resultados) {
       batch.set(
@@ -96,6 +113,18 @@ class ResultadoService {
     return resultado;
   }
 
+  Future<Set<String>> _listarAlunosIds(String uid, String turmaId) async {
+    if (turmaId.isEmpty) return {};
+    final snap = await firestore
+        .collection('usuarios')
+        .doc(uid)
+        .collection('turmas')
+        .doc(turmaId)
+        .collection('alunos')
+        .get();
+    return snap.docs.map((d) => d.id).toSet();
+  }
+
   Future<List<ResultadoAluno>> _listarResultadosAlunos(
     String uid,
     String provaId,
@@ -104,7 +133,7 @@ class ResultadoService {
     return snap.docs.map((doc) => ResultadoAluno.fromFirestore(doc)).toList();
   }
 
-  /// Escuta as provas já corrigidas do professor, com os resultados por aluno,
+  /// Escuta as provas jÃ¡ corrigidas do professor, com os resultados por aluno,
   /// da mais recente para a mais antiga.
   Stream<List<ResultadoProva>> monitorarResultados({String? userId}) {
     if (_firestore == null) return Stream.value(const []);
