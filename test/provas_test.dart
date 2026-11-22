@@ -7,6 +7,7 @@ import 'package:prova_certa/models/alternativa.dart';
 import 'package:prova_certa/models/prova.dart';
 import 'package:prova_certa/models/questao.dart';
 import 'package:prova_certa/models/turma.dart';
+import 'package:prova_certa/models/versao_prova.dart';
 import 'package:prova_certa/screens/nova_prova_screen.dart';
 import 'package:prova_certa/screens/provas_screen.dart';
 import 'package:prova_certa/services/prova_service.dart';
@@ -128,7 +129,26 @@ final questoesTeste = [
   questao('q1', 'Enunciado da questão um', 'A'),
   questao('q2', 'Enunciado da questão dois', 'C'),
   questao('q3', 'Enunciado da questão três', 'B'),
+  questao('q4', 'Enunciado da questão quatro', 'B'),
+  questao('q5', 'Enunciado da questão cinco', 'A'),
 ];
+
+Future<void> tocarQuestao(WidgetTester tester, String enunciado) async {
+  await tester.ensureVisible(find.text(enunciado));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(enunciado));
+  await tester.pumpAndSettle();
+}
+
+bool continuarHabilitado(WidgetTester tester) {
+  final botao = tester.widget<ElevatedButton>(
+    find.ancestor(
+      of: find.text('Continuar'),
+      matching: find.byType(ElevatedButton),
+    ),
+  );
+  return botao.onPressed != null;
+}
 
 Prova prova(String id, String nome, ProvaStatus status, {int corrigidas = 0}) {
   return Prova(
@@ -159,8 +179,13 @@ Future<void> abrirProvas(WidgetTester tester, FakeProvaService service) async {
 Future<void> abrirEtapaQuestoes(
   WidgetTester tester,
   FakeProvaService service,
-  FakeQuestoesProvaService questaoService,
-) async {
+  FakeQuestoesProvaService questaoService, {
+  int? quantidade,
+}) async {
+  tester.view.physicalSize = const Size(800, 2000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+
   await tester.pumpWidget(
     MaterialApp(
       home: NovaProvaScreen(
@@ -178,9 +203,24 @@ Future<void> abrirEtapaQuestoes(
   await tester.tap(find.text('1º A — 1º Ano (30 alunos)').last);
   await tester.pumpAndSettle();
 
+  if (quantidade != null) {
+    await tester.ensureVisible(find.text('$quantidade'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('$quantidade'));
+    await tester.pumpAndSettle();
+  }
+
   await tester.tap(find.text('Continuar'));
   await tester.pumpAndSettle();
 }
+
+const ordemSelecao = [
+  'Enunciado da questão dois',
+  'Enunciado da questão um',
+  'Enunciado da questão três',
+  'Enunciado da questão quatro',
+  'Enunciado da questão cinco',
+];
 
 Future<FakeProvaService> preencherNovaProva(WidgetTester tester) async {
   final service = FakeProvaService();
@@ -189,11 +229,12 @@ Future<FakeProvaService> preencherNovaProva(WidgetTester tester) async {
     tester,
     service,
     FakeQuestoesProvaService(questoesTeste),
+    quantidade: 5,
   );
 
-  await tester.tap(find.text('Enunciado da questão dois'));
-  await tester.tap(find.text('Enunciado da questão um'));
-  await tester.pumpAndSettle();
+  for (final enunciado in ordemSelecao) {
+    await tocarQuestao(tester, enunciado);
+  }
 
   await tester.tap(find.text('Continuar'));
   await tester.pumpAndSettle();
@@ -234,6 +275,62 @@ void main() {
         () => ProvaService().criarProva(
           prova('', 'Prova', ProvaStatus.ativa)
               .copyWith(turma: turmaA.copyWith(id: '')),
+          userId: 'prof',
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejeita prova com menos questões do que a quantidade escolhida', () {
+      expect(
+        () => ProvaService().criarProva(
+          prova('', 'Prova', ProvaStatus.ativa)
+              .copyWith(quantidadeQuestoes: 10),
+          userId: 'prof',
+        ),
+        throwsA(isA<ArgumentError>().having(
+          (e) => e.message,
+          'message',
+          contains('exatamente 10 questões'),
+        )),
+      );
+    });
+
+    test('rejeita prova com questões repetidas', () {
+      expect(
+        () => ProvaService().criarProva(
+          prova('', 'Prova', ProvaStatus.ativa).copyWith(
+            questoes: [questoesTeste[0], questoesTeste[0]],
+          ),
+          userId: 'prof',
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejeita gabarito com tamanho diferente da quantidade', () {
+      expect(
+        () => ProvaService().criarProva(
+          prova('', 'Prova', ProvaStatus.ativa)
+              .copyWith(gabaritoOficial: ['A']),
+          userId: 'prof',
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejeita versão com quantidade de questões diferente', () {
+      expect(
+        () => ProvaService().criarProva(
+          prova('', 'Prova', ProvaStatus.ativa).copyWith(
+            versoes: [
+              VersaoProva(
+                numero: 1,
+                questoes: [questoesTeste[0]],
+                gabarito: const ['A'],
+              ),
+            ],
+          ),
           userId: 'prof',
         ),
         throwsArgumentError,
@@ -383,15 +480,16 @@ void main() {
       expect(salva.nome, 'Prova de Citologia');
       expect(salva.turma.id, 'turma_a');
       expect(salva.status, ProvaStatus.ativa);
-      expect(salva.quantidadeQuestoes, 2);
-      expect(salva.extrairQuestoesIds(), ['q2', 'q1']);
-      expect(salva.gabaritoOficial, ['C', 'A']);
+      expect(salva.quantidadeQuestoes, 5);
+      expect(salva.extrairQuestoesIds(), ['q2', 'q1', 'q3', 'q4', 'q5']);
+      expect(salva.gabaritoOficial, ['C', 'A', 'B', 'B', 'A']);
+      for (final versao in salva.versoes!) {
+        expect(versao.questoes, hasLength(5));
+        expect(versao.gabarito, hasLength(5));
+      }
 
       final snapshot = salva.extrairQuestoesSnapshot();
-      expect(snapshot.map((q) => q['enunciado']), [
-        'Enunciado da questão dois',
-        'Enunciado da questão um',
-      ]);
+      expect(snapshot.map((q) => q['enunciado']), ordemSelecao);
 
       await concluirTransicao(tester);
     });
@@ -421,9 +519,87 @@ void main() {
       expect(find.text('Enunciado da questão três'), findsOneWidget);
       expect(find.text('Gabarito: C'), findsOneWidget);
 
-      await tester.tap(find.text('Enunciado da questão um'));
+      await tocarQuestao(tester, 'Enunciado da questão um');
+      expect(
+        find.textContaining('1 de 10 questões selecionadas'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'não avança nem salva com menos questões do que a quantidade escolhida',
+        (tester) async {
+      final service = FakeProvaService();
+      await abrirEtapaQuestoes(
+        tester,
+        service,
+        FakeQuestoesProvaService(questoesTeste),
+        quantidade: 5,
+      );
+
+      for (final enunciado in ordemSelecao.take(4)) {
+        await tocarQuestao(tester, enunciado);
+      }
+      expect(find.text('4 de 5 questões selecionadas'), findsOneWidget);
+      expect(continuarHabilitado(tester), isFalse);
+
+      await tester.tap(find.text('Continuar'));
       await tester.pumpAndSettle();
-      expect(find.text('1 de 10 questões selecionadas'), findsOneWidget);
+      expect(find.text('Gerar prova'), findsNothing);
+      expect(service.todas, isEmpty);
+
+      await tocarQuestao(tester, ordemSelecao.last);
+      expect(find.text('5 de 5 questões selecionadas'), findsOneWidget);
+      expect(continuarHabilitado(tester), isTrue);
+    });
+
+    testWidgets('não permite selecionar além da quantidade escolhida',
+        (tester) async {
+      await abrirEtapaQuestoes(
+        tester,
+        FakeProvaService(),
+        FakeQuestoesProvaService([
+          ...questoesTeste,
+          questao('q6', 'Enunciado da questão seis', 'C'),
+        ]),
+        quantidade: 5,
+      );
+
+      for (final enunciado in ordemSelecao) {
+        await tocarQuestao(tester, enunciado);
+      }
+      await tocarQuestao(tester, 'Enunciado da questão seis');
+
+      expect(find.text('5 de 5 questões selecionadas'), findsOneWidget);
+      expect(find.text('Limite de 5 questões atingido.'), findsOneWidget);
+    });
+
+    testWidgets('bloqueia a geração se uma questão escolhida sair do banco',
+        (tester) async {
+      final questaoService = FakeQuestoesProvaService(questoesTeste);
+      final service = FakeProvaService();
+      await abrirEtapaQuestoes(
+        tester,
+        service,
+        questaoService,
+        quantidade: 5,
+      );
+      for (final enunciado in ordemSelecao) {
+        await tocarQuestao(tester, enunciado);
+      }
+      await tester.tap(find.text('Continuar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Gerar prova'), findsOneWidget);
+
+      questaoService.atualizar(
+        questoesTeste.where((q) => q.id != 'q4').toList(),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Gerar prova'));
+      await tester.tap(find.text('Salvar como rascunho'));
+      await tester.pumpAndSettle();
+      expect(service.todas, isEmpty);
     });
 
     testWidgets('remove da seleção a questão excluída do banco',
@@ -431,10 +607,12 @@ void main() {
       final questaoService = FakeQuestoesProvaService(questoesTeste);
       await abrirEtapaQuestoes(tester, FakeProvaService(), questaoService);
 
-      await tester.tap(find.text('Enunciado da questão um'));
-      await tester.tap(find.text('Enunciado da questão dois'));
-      await tester.pumpAndSettle();
-      expect(find.text('2 de 10 questões selecionadas'), findsOneWidget);
+      await tocarQuestao(tester, 'Enunciado da questão um');
+      await tocarQuestao(tester, 'Enunciado da questão dois');
+      expect(
+        find.textContaining('2 de 10 questões selecionadas'),
+        findsOneWidget,
+      );
 
       questaoService.atualizar(
         questoesTeste.where((q) => q.id != 'q2').toList(),
@@ -442,7 +620,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Enunciado da questão dois'), findsNothing);
-      expect(find.text('1 de 10 questões selecionadas'), findsOneWidget);
+      expect(
+        find.textContaining('1 de 10 questões selecionadas'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('salva a prova como rascunho', (tester) async {

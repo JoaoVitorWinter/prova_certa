@@ -11,6 +11,14 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function quantidadeQuestoesConsistente(data) {
+      return data.quantidadeQuestoes is int
+        && data.quantidadeQuestoes > 0
+        && data.questoesIds is list
+        && data.questoesIds.size() == data.quantidadeQuestoes
+        && (!('gabaritoOficial' in data) || data.gabaritoOficial.size() == data.quantidadeQuestoes);
+    }
+
     // Bloqueia qualquer rota não mapeada explicitamente
     match /{document=**} {
       allow read, write: if false;
@@ -102,7 +110,11 @@ service cloud.firestore {
           && (!('questoesIds' in request.resource.data) || request.resource.data.questoesIds is list)
           && (!('questoesSnapshot' in request.resource.data) || request.resource.data.questoesSnapshot is list)
           && (!('versoes' in request.resource.data) || request.resource.data.versoes is list)
-          && (!('gabaritoOficial' in request.resource.data) || request.resource.data.gabaritoOficial is list);
+          && (!('gabaritoOficial' in request.resource.data) || request.resource.data.gabaritoOficial is list)
+          && ((request.method == 'update'
+                && !request.resource.data.diff(resource.data).affectedKeys()
+                    .hasAny(['quantidadeQuestoes', 'questoesIds', 'gabaritoOficial']))
+              || quantidadeQuestoesConsistente(request.resource.data));
 
         // ------------------------------------------------------
         // SUBCOLEÇÃO: RESULTADOS INDIVIDUAIS POR ALUNO

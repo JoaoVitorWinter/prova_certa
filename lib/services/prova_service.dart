@@ -56,13 +56,34 @@ class ProvaService {
     if (prova.turma.id.isEmpty) {
       throw ArgumentError('Selecione a turma da prova.');
     }
-    if (prova.extrairQuestoesIds().isEmpty) {
+    final ids = prova.extrairQuestoesIds();
+    if (ids.isEmpty) {
       throw ArgumentError('Selecione ao menos uma questão.');
     }
-    if (prova.quantidadeQuestoes != prova.extrairQuestoesIds().length) {
+    final quantidade = prova.quantidadeQuestoes;
+    if (ids.length != quantidade) {
       throw ArgumentError(
-        'A quantidade de questões não confere com as questões selecionadas.',
+        'A prova precisa ter exatamente $quantidade questões; '
+        '${ids.length} selecionadas.',
       );
+    }
+    if (ids.toSet().length != ids.length) {
+      throw ArgumentError('A prova não pode ter questões repetidas.');
+    }
+    final gabarito = prova.gabaritoOficial;
+    if (gabarito != null && gabarito.length != quantidade) {
+      throw ArgumentError(
+        'O gabarito precisa ter exatamente $quantidade respostas.',
+      );
+    }
+    for (final versao in prova.versoes ?? const []) {
+      if (versao.questoes.length != quantidade ||
+          versao.gabarito.length != quantidade) {
+        throw ArgumentError(
+          'A versão ${versao.numero} precisa ter exatamente '
+          '$quantidade questões.',
+        );
+      }
     }
   }
 
