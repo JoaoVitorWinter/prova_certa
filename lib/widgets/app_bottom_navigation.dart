@@ -24,50 +24,54 @@ class AppBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      height: 64,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFE4E9F1),
+    return SafeArea(
+      top: false,
+      maintainBottomViewPadding: true,
+      child: Container(
+        height: 64,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFE4E9F1),
+            ),
           ),
         ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _NavigationItem(
-            icon: Icons.home_outlined,
-            label: 'Início',
-            selected: currentItem == AppNavigationItem.inicio,
-            onTap: onInicio,
-          ),
-          _NavigationItem(
-            icon: Icons.description_outlined,
-            label: 'Provas',
-            selected: currentItem == AppNavigationItem.provas,
-            onTap: onProvas,
-          ),
-          _NavigationItem(
-            icon: Icons.document_scanner_outlined,
-            label: 'Corrigir',
-            selected: currentItem == AppNavigationItem.corrigir,
-            onTap: onCorrigir,
-          ),
-          _NavigationItem(
-            icon: Icons.bar_chart_outlined,
-            label: 'Resultados',
-            selected: currentItem == AppNavigationItem.resultados,
-            onTap: onResultados,
-          ),
-          _NavigationItem(
-            icon: Icons.people_outline_rounded,
-            label: 'Turmas',
-            selected: currentItem == AppNavigationItem.turmas,
-            onTap: onTurmas,
-          ),
-        ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _NavigationItem(
+              icon: Icons.home_outlined,
+              label: 'Início',
+              selected: currentItem == AppNavigationItem.inicio,
+              onTap: onInicio,
+            ),
+            _NavigationItem(
+              icon: Icons.description_outlined,
+              label: 'Provas',
+              selected: currentItem == AppNavigationItem.provas,
+              onTap: onProvas,
+            ),
+            _NavigationItem(
+              icon: Icons.document_scanner_outlined,
+              label: 'Corrigir',
+              selected: currentItem == AppNavigationItem.corrigir,
+              onTap: onCorrigir,
+            ),
+            _NavigationItem(
+              icon: Icons.bar_chart_outlined,
+              label: 'Resultados',
+              selected: currentItem == AppNavigationItem.resultados,
+              onTap: onResultados,
+            ),
+            _NavigationItem(
+              icon: Icons.people_outline_rounded,
+              label: 'Turmas',
+              selected: currentItem == AppNavigationItem.turmas,
+              onTap: onTurmas,
+            ),
+          ],
+        ),
       ),
     );
   }

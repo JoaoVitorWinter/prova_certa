@@ -48,8 +48,9 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
     _provasSub = _provaService.monitorarProvas().listen(
       (provas) {
         if (!mounted) return;
-        final abertas =
-            provas.where((prova) => prova.status == ProvaStatus.ativa).toList();
+        final abertas = provas
+            .where((prova) => prova.status == ProvaStatus.ativa)
+            .toList();
         setState(() {
           _provas = provas;
           _carregando = false;
@@ -59,8 +60,9 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
               !abertas.any((p) => p.id == _provaSelecionada!.id)) {
             _provaSelecionada = abertas.isEmpty ? null : abertas.first;
           } else {
-            _provaSelecionada =
-                abertas.firstWhere((p) => p.id == _provaSelecionada!.id);
+            _provaSelecionada = abertas.firstWhere(
+              (p) => p.id == _provaSelecionada!.id,
+            );
           }
         });
       },
@@ -360,36 +362,40 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
   Widget _buildBottomButton() {
     final habilitado = _provaSelecionada != null;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(13, 12, 13, 10),
-      color: Colors.white,
-      child: SizedBox(
-        height: 40,
-        child: ElevatedButton(
-          onPressed: habilitado
-              ? () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          GabaritoQrScreen(prova: _provaSelecionada!),
-                    ),
-                  );
-                }
-              : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6345E8),
-            disabledBackgroundColor: const Color(0xFFD8D9E2),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+    return SafeArea(
+      top: false,
+      maintainBottomViewPadding: true,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(13, 12, 13, 10),
+        color: Colors.white,
+        child: SizedBox(
+          height: 40,
+          child: ElevatedButton(
+            onPressed: habilitado
+                ? () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            GabaritoQrScreen(prova: _provaSelecionada!),
+                      ),
+                    );
+                  }
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6345E8),
+              disabledBackgroundColor: const Color(0xFFD8D9E2),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-          ),
-          child: const Text(
-            'Iniciar correção',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            child: const Text(
+              'Iniciar correção',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
           ),
         ),
       ),
