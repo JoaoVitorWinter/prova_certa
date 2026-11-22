@@ -708,7 +708,7 @@ class _QuestoesStep extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(22, 17, 22, 25),
     children: [
       Text(
-        'BANCO DE QUESTÕES — SELECIONE ATÉ $limite',
+        'BANCO DE QUESTÕES — SELECIONE EXATAMENTE $limite',
         style: const TextStyle(
           color: Color(0xFF52647C),
           fontSize: 11,

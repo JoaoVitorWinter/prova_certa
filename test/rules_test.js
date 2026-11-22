@@ -20,6 +20,10 @@ function createEmulatorToken(userId, email) {
   return `${header}.${payload}.`;
 }
 
+function idsQuestoes(quantidade) {
+  return Array.from({ length: quantidade }, (_, i) => ({ stringValue: `q${i + 1}` }));
+}
+
 const BASE_URL = 'http://localhost:8080/v1/projects/demo-prova-certa/databases/(default)/documents';
 
 async function firestoreRequest(path, method = 'GET', body = null, token = null) {
@@ -285,11 +289,26 @@ async function runTests() {
         nome: { stringValue: '1ª Prova Bimestral' },
         turmaId: { stringValue: 't1' },
         status: { stringValue: 'ativa' },
-        quantidadeQuestoes: { integerValue: '10' }
+        quantidadeQuestoes: { integerValue: '10' },
+        questoesIds: { arrayValue: { values: idsQuestoes(10) } }
       }
     };
     const res = await firestoreRequest('usuarios/prof_ana_1/provas/p1', 'PATCH', body, tokenAna);
     assert.strictEqual(res.status, 200, `Esperado 200, obtido ${res.status}`);
+  });
+
+  await check('Prova com MENOS questões do que a quantidade escolhida é REJEITADA', async () => {
+    const body = {
+      fields: {
+        nome: { stringValue: 'Prova Incompleta' },
+        turmaId: { stringValue: 't1' },
+        status: { stringValue: 'ativa' },
+        quantidadeQuestoes: { integerValue: '10' },
+        questoesIds: { arrayValue: { values: idsQuestoes(2) } }
+      }
+    };
+    const res = await firestoreRequest('usuarios/prof_ana_1/provas/p_incompleta', 'PATCH', body, tokenAna);
+    assert.strictEqual(res.status, 403, `Esperado 403, obtido ${res.status}`);
   });
 
   await check('Prova com STATUS INVÁLIDO ("cancelada") é REJEITADA', async () => {
