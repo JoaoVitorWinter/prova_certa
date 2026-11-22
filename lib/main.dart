@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
@@ -12,6 +13,15 @@ import 'utils/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await ThemeService.instancia.inicializar();
   runApp(const ProvaCertaApp());
@@ -33,7 +43,8 @@ class ProvaCertaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stream = authStateStream ??
+    final stream =
+        authStateStream ??
         (Firebase.apps.isNotEmpty
             ? FirebaseAuth.instance.authStateChanges()
             : null);
@@ -48,12 +59,25 @@ class ProvaCertaApp extends StatelessWidget {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: tema.themeMode,
-          home: homeOverride ??
+          builder: (context, child) {
+            if (child == null) {
+              return const SizedBox.shrink();
+            }
+            return SafeArea(
+              top: false,
+              bottom: true,
+              maintainBottomViewPadding: true,
+              child: child,
+            );
+          },
+          home:
+              homeOverride ??
               (stream != null
                   ? StreamBuilder<User?>(
                       stream: stream,
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
                           return const Scaffold(
                             backgroundColor: Color(0xFFF4F6FA),
                             body: Center(
