@@ -8,13 +8,11 @@ class ProvaService {
   final FirebaseFirestore? _firestore;
   final FirebaseAuth? _auth;
 
-  ProvaService({
-    FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
-  })  : _firestore = firestore ??
-            (Firebase.apps.isNotEmpty ? FirebaseFirestore.instance : null),
-        _auth = auth ??
-            (Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null);
+  ProvaService({FirebaseFirestore? firestore, FirebaseAuth? auth})
+    : _firestore =
+          firestore ??
+          (Firebase.apps.isNotEmpty ? FirebaseFirestore.instance : null),
+      _auth = auth ?? (Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null);
 
   FirebaseFirestore get firestore {
     if (_firestore == null) {
@@ -47,6 +45,9 @@ class ProvaService {
   }
 
   void _validar(Prova prova) {
+    if (prova.quantidadeQuestoes < 1 || prova.quantidadeQuestoes > 20) {
+      throw ArgumentError('A prova deve ter entre 1 e 20 questões.');
+    }
     if (prova.numeroVersoes < 1 || prova.numeroVersoes > 4) {
       throw ArgumentError('O número de versões deve estar entre 1 e 4.');
     }
@@ -70,8 +71,10 @@ class ProvaService {
     if (_firestore == null) return const Stream.empty();
     try {
       final uid = _resolveUserId(userId);
-      return _provasRef(uid).snapshots().map((snapshot) =>
-          _ordenar(snapshot.docs.map((doc) => Prova.fromFirestore(doc))));
+      return _provasRef(uid).snapshots().map(
+        (snapshot) =>
+            _ordenar(snapshot.docs.map((doc) => Prova.fromFirestore(doc))),
+      );
     } catch (e) {
       return Stream.error(e);
     }
@@ -97,10 +100,7 @@ class ProvaService {
     final docRef = _provasRef(uid).doc();
     final nova = prova.copyWith(id: docRef.id);
 
-    await docRef.set({
-      'id': docRef.id,
-      ...nova.toFirestore(),
-    });
+    await docRef.set({'id': docRef.id, ...nova.toFirestore()});
 
     return nova.copyWith(
       criadoEm: DateTime.now(),
