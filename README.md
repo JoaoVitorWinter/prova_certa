@@ -18,8 +18,6 @@
 
 ## 👥 Equipe
 
-<!-- Substitua o campo abaixo pelos nomes completos dos integrantes antes da entrega. -->
-
 | Nome completo |
 | --- |
 | *Carlos Henrique Lechner* |
@@ -53,7 +51,7 @@ O **Prova Certa** é um aplicativo desenvolvido em **Flutter e Dart**, voltado �
 
 A aplicação utiliza o **Firebase Authentication** para autenticação dos usuários e o **Cloud Firestore** para armazenamento e gerenciamento dos dados em nuvem. Cada professor possui um ambiente individualizado, garantindo a organização, a privacidade e o isolamento das informações vinculadas à sua conta.
 
-Entre suas funcionalidades estão o cadastro e gerenciamento de turmas e alunos, a importação de listas por arquivos CSV e XLSX, o fluxo de correção de avaliações, a visualização de resultados e a exportação de notas. O sistema também oferece um painel inicial com indicadores acadêmicos e acesso rápido às principais funcionalidades.
+Entre suas funcionalidades estão o cadastro e gerenciamento de turmas e alunos, a importação de listas por arquivos CSV e XLSX, a geração de versões de provas e folhas de resposta em PDF, o fluxo de correção de avaliações, a visualização de resultados e a exportação de notas. O sistema também oferece um painel inicial com indicadores acadêmicos e acesso rápido às principais funcionalidades.
 
 O Prova Certa busca proporcionar uma experiência prática e eficiente, contribuindo para a **digitalização dos processos avaliativos, a redução de tarefas manuais e o acompanhamento do desempenho dos alunos**.
 
@@ -68,7 +66,7 @@ O objetivo principal é facilitar a rotina do professor por meio de uma soluçã
 - cadastrar, consultar, editar e excluir questões do banco de questões;
 - criar provas a partir das questões cadastradas, associando-as às turmas;
 - consultar provas, acompanhar seus estados e gerenciá-las;
-- gerar e ler o QR Code do gabarito das avaliações;
+- gerar versões de provas com embaralhamento opcional de questões e alternativas, exportar os cadernos e folhas de resposta em PDF e gerar e ler o QR Code do gabarito das avaliações;
 - capturar imagens das folhas de resposta e conferir as alternativas identificadas pelo leitor experimental;
 - calcular, armazenar e consultar resultados de correções;
 - analisar o desempenho por avaliação, questão e aluno;
@@ -88,27 +86,23 @@ A finalidade é reduzir a dependência de registros manuais, melhorar a organiza
 - **Importação de alunos:** leitura e processamento de arquivos CSV/XLSX, com validação de registros e tratamento de duplicidades.
 - **Banco de questões:** cadastro, consulta, listagem, edição e exclusão de questões, com persistência no Firestore.
 - **Provas:** criação, listagem, filtros por situação, alteração de status e exclusão de avaliações cadastradas, com persistência no Firestore.
-- **Composição de provas:** seleção de questões existentes e armazenamento de suas referências e informações na prova.
+- **Composição de provas:** seleção de questões existentes, armazenamento de suas referências e informações na prova, geração de 1, 2 ou 4 versões com embaralhamento opcional de questões e alternativas e gabarito por versão.
+- **Geração de PDF:** visualização e exportação individual ou em lote dos cadernos de questões e folhas de resposta com QR Code por versão.
 - **QR Code:** geração e exibição do QR Code de uma prova cadastrada e leitura do código no fluxo de correção.
 - **Dashboard:** apresentação de informações associadas aos dados do professor, como quantidade de alunos, correções e atividades recentes disponíveis.
-- **Correções e resultados:** cálculo e persistência dos resultados gerados pelo fluxo de correção, com consultas por aluno e por questão.
+- **Correções e resultados:** cálculo e persistência dos resultados gerados pelo fluxo de correção, com consultas por aluno e por questão e encerramento automático da prova quando todos os alunos da turma possuem resultado salvo.
 - **Exportação:** geração de arquivos CSV de notas e análise por questão, com possibilidade de compartilhamento pelo dispositivo.
+- **Aparência:** seleção de tema claro, escuro ou do sistema, com persistência local da preferência.
 - **Segurança e navegação:** associação das informações ao UID autenticado, regras de acesso do Firestore e controle de acesso a telas por sessão.
 
 #### 1.2.2. Funcionalidades parciais ou experimentais
 
 | Módulo | Estado atual | Limitação |
-
 | --- | --- | --- |
-
 | Gestão de provas | **Parcialmente implementado** | Permite criar, listar, alterar o status e excluir provas; a edição completa de uma prova já cadastrada não foi identificada. |
-
 | Leitura das folhas de resposta | **Experimental** | Analisa fotografias e tenta identificar alternativas marcadas por processamento de imagem, exigindo alinhamento adequado e conferência manual. |
-
 | Identificação dos alunos nas folhas | **Manual** | O professor seleciona o aluno correspondente à folha; não há reconhecimento automático do nome ou RA escrito. |
-
-| Versões e embaralhamento de questões | **Parcial** | Existem estruturas para versões, mas a integração completa ao fluxo principal não foi identificada. |
-
+| Análise conjunta de versões embaralhadas | **Parcial** | A geração das versões está implementada; a normalização das questões entre versões para estatísticas conjuntas não foi identificada. |
 | Algumas configurações | **Demonstrativo/parcial** | As telas podem estar disponíveis sem persistência ou aplicação integral das preferências. |
 
 **Importante:** a detecção de alternativas nas folhas é experimental e depende da revisão do professor. A existência do leitor de imagem não significa que o aplicativo já realize correção totalmente automática e validada em diferentes condições de captura.
@@ -118,7 +112,7 @@ A finalidade é reduzir a dependência de registros manuais, melhorar a organiza
 - reconhecimento robusto das marcações em diferentes modelos de folhas e condições de captura;
 - identificação automática do aluno por nome ou RA manuscrito na folha;
 - edição completa de provas já cadastradas, incluindo alterações de suas questões e configurações;
-- integração completa da geração e distribuição de versões de prova;
+- normalização das estatísticas por questão entre versões embaralhadas;
 - funcionamento totalmente offline e sincronização posterior;
 - disponibilização do aplicativo como produto final em produção.
 
@@ -131,79 +125,48 @@ A finalidade é reduzir a dependência de registros manuais, melhorar a organiza
 Os requisitos a seguir descrevem as funções previstas para a aplicação e indicam o estágio atual de atendimento.
 
 | ID | Requisito | Estado |
-
 | --- | --- | --- |
-
 | **RF01** | O sistema deve permitir o **cadastro de professores**, utilizando e-mail e senha e criando o respectivo perfil no banco de dados. | Implementado |
-
 | **RF02** | O sistema deve permitir **login, manutenção da sessão e logout** por meio do Firebase Authentication. | Implementado |
-
 | **RF03** | O sistema deve permitir solicitar a **redefinição de senha por e-mail**. | Implementado |
-
 | **RF04** | O sistema deve apresentar um **dashboard** com indicadores associados aos dados armazenados e atalhos para as funções principais. | Implementado |
-
 | **RF05** | O sistema deve permitir **cadastrar, listar, consultar, editar e excluir turmas** do professor autenticado. | Implementado |
-
 | **RF06** | O sistema deve permitir **cadastrar, listar, editar e excluir alunos** vinculados às turmas. | Implementado |
-
 | **RF07** | O sistema deve permitir **importar alunos por arquivos CSV e XLSX**, validando os registros e tratando duplicidades. | Implementado |
-
 | **RF08** | O sistema deve permitir **consultar e editar o perfil** do professor, persistindo as alterações no Firestore. | Implementado |
-
 | **RF09** | O sistema deve permitir **cadastrar, listar, consultar, editar e excluir questões** no banco de questões. | Implementado |
-
 | **RF10** | O sistema deve permitir **selecionar questões cadastradas** para compor uma prova. | Implementado |
-
 | **RF11** | O sistema deve permitir **criar e armazenar provas** vinculadas às turmas, incluindo questões e gabarito. | Implementado |
-
 | **RF12** | O sistema deve apresentar uma **lista de provas com filtros**, permitir a alteração de status e a exclusão de avaliações. | Implementado |
-
 | **RF13** | O sistema deve permitir **editar integralmente uma prova existente**, incluindo seus dados e a composição de questões. | Não identificado na versão atual |
-
 | **RF14** | O sistema deve permitir **gerar e exibir o QR Code** correspondente à prova e ao gabarito. | Implementado |
-
 | **RF15** | O sistema deve oferecer a **leitura do QR Code do gabarito** como etapa da correção. | Implementado |
-
 | **RF16** | O sistema deve permitir **capturar folhas de resposta e identificar possíveis marcações** para conferência do professor. | Experimental |
-
 | **RF17** | O sistema deve permitir **associar a folha ao aluno**, conferir as respostas e finalizar a correção com alunos ausentes ou pendentes. | Implementado com conferência manual |
-
 | **RF18** | O sistema deve **calcular notas e acertos**, gerar um resumo da correção e salvar os resultados no Firestore. | Implementado |
-
 | **RF19** | O sistema deve apresentar **resultados por prova, questão e aluno**, incluindo médias, distribuição de notas e percentuais de acerto. | Implementado |
-
 | **RF20** | O sistema deve **exportar e compartilhar notas e análises por questão em CSV**, compatível com planilhas. | Implementado |
-
 | **RF21** | O sistema deve disponibilizar **navegação entre os módulos, proteção por sessão e telas complementares** do aplicativo. | Implementado; algumas configurações são demonstrativas |
+| **RF22** | O sistema deve permitir gerar versões de provas com embaralhamento opcional de questões e alternativas e gabarito por versão. | Implementado |
+| **RF23** | O sistema deve permitir visualizar e exportar cadernos e folhas de resposta em PDF, individualmente ou em lote. | Implementado |
+| **RF24** | O sistema deve encerrar automaticamente a prova quando todos os alunos da turma tiverem resultado salvo. | Implementado |
+| **RF25** | O sistema deve permitir selecionar e persistir localmente a preferência de tema. | Implementado |
 
 ### 2.2 Não Funcionais (RNF)
 
 | ID | Requisito | Descrição |
-
 | --- | --- | --- |
-
 | **RNF01 — Usabilidade** | Interface intuitiva | A navegação e os formulários devem apresentar informações, ações e mensagens compreensíveis ao professor. |
-
 | **RNF02 — Responsividade** | Adaptação visual | A interface deve se adaptar aos tamanhos de tela suportados, especialmente em dispositivos Android. |
-
 | **RNF03 — Segurança de acesso** | Autenticação | As funcionalidades protegidas devem exigir sessão autenticada pelo Firebase Authentication. |
-
 | **RNF04 — Isolamento de dados** | Autorização | Os registros devem estar vinculados a `usuarios/{uid}` e protegidos por regras que impeçam acesso entre usuários distintos. |
-
 | **RNF05 — Persistência** | Banco de dados | Os módulos integrados devem gravar e recuperar informações no Cloud Firestore, sem depender exclusivamente do estado local. |
-
 | **RNF06 — Integridade dos dados** | Validação | Os campos obrigatórios, relações entre entidades e registros importados devem ser validados, reduzindo duplicidades e inconsistências. |
-
 | **RNF07 — Manutenibilidade** | Organização do código | O projeto deve manter a separação entre telas, modelos, serviços, componentes reutilizáveis e dados auxiliares. |
-
 | **RNF08 — Evolutividade** | Expansão | A arquitetura deve permitir aprimorar o reconhecimento das folhas e integrar funcionalidades complementares. |
-
 | **RNF09 — Compatibilidade** | Plataforma e arquivos | O aplicativo deve executar nas plataformas configuradas no Firebase e produzir arquivos CSV que possam ser abertos em programas de planilha. |
-
 | **RNF10 — Tratamento de falhas** | Experiência do usuário | Falhas de autenticação, validação, rede e operações no banco devem ser tratadas e apresentadas com mensagens adequadas. |
-
 | **RNF11 — Conectividade** | Operações remotas | As operações que consultam o Firebase dependem de conectividade adequada; não há garantia de funcionamento offline completo. |
-
 | **RNF12 — Testabilidade** | Qualidade | O projeto deve permitir análise estática, execução de testes automatizados e validação das regras e dos fluxos de persistência. |
 
 ## 3. Telas do Sistema
@@ -211,51 +174,29 @@ Os requisitos a seguir descrevem as funções previstas para a aplicação e ind
 📌 **N2**
 
 | Tela ou módulo | Finalidade | Estado |
-
 | --- | --- | --- |
-
 | **Login** | Autenticar o professor por e-mail e senha. | Integrada ao Firebase Auth |
-
 | **Cadastro** | Criar a conta e o perfil inicial do professor. | Integrada ao Firebase Auth/Firestore |
-
 | **Recuperação de senha** | Solicitar envio do e-mail de redefinição. | Integrada ao Firebase Auth |
-
 | **Home / Dashboard** | Mostrar atalhos, contadores e informações disponíveis do professor. | Integrada aos dados persistidos |
-
 | **Turmas** | Consultar e gerenciar as turmas cadastradas. | Integrada ao Firestore |
-
 | **Cadastro / edição de turma** | Criar ou atualizar as informações de uma turma. | Integrada ao Firestore |
-
 | **Detalhes da turma** | Exibir dados da turma e alunos associados. | Integrada ao Firestore |
-
 | **Cadastro / edição de aluno** | Manter os registros dos estudantes. | Integrada ao Firestore |
-
 | **Importação de alunos** | Importar estudantes por arquivo CSV ou XLSX. | Integrada ao Firestore |
-
 | **Provas** | Apresentar a lista e os filtros de avaliações e ações de gerenciamento. | Integrada ao Firestore |
-
 | **Nova prova** | Criar uma prova, selecionar questões e salvar seus dados. | Integrada ao Firestore |
-
 | **Banco de questões** | Consultar, cadastrar, editar e excluir questões. | Integrada ao Firestore |
-
 | **Seleção de questões** | Escolher questões cadastradas para uma avaliação. | Integrada ao Firestore |
-
 | **Correção de prova** | Iniciar e acompanhar a correção de uma avaliação. | Funcional, com etapa experimental de leitura |
-
+| **Visualização de versões / PDF** | Consultar versões e visualizar ou exportar cadernos e folhas de resposta. | Implementado |
 | **QR Code da prova** | Gerar e exibir o código do gabarito da avaliação. | Implementado |
-
 | **Leitura do QR Code** | Capturar e validar o código do gabarito. | Implementado |
-
 | **Leitura de folhas** | Fotografar a folha, identificar possíveis respostas e permitir conferência. | Experimental |
-
 | **Resultados** | Exibir resumos e detalhes por questão e aluno. | Integrada ao Firestore |
-
 | **Exportação / compartilhamento** | Gerar e compartilhar arquivos CSV. | Funcional |
-
 | **Perfil** | Consultar informações do docente. | Integrada ao Firestore |
-
 | **Editar perfil** | Atualizar dados do professor. | Integrada ao Firestore |
-
 | **Configurações / notificações / aparência / sobre** | Apresentar opções e informações complementares. | Algumas funções demonstrativas |
 
 ### 3.1 Fluxo Principal de Utilização
@@ -270,45 +211,39 @@ Os requisitos a seguir descrevem as funções previstas para a aplicação e ind
 
 5\. Cadastra questões no banco e as seleciona para compor uma nova prova.
 
-6\. Salva a prova no Firestore e gera seu QR Code com as informações do gabarito.
+6\. Configura o número de versões e o embaralhamento, salva a prova no Firestore e visualiza ou exporta os PDFs com o QR Code do gabarito de cada versão.
 
 7\. No fluxo de correção, lê o QR Code, fotografa as folhas e revisa as respostas identificadas antes de confirmar.
 
-8\. O sistema calcula as notas e salva os resultados da correção no Firestore.
+8\. O sistema calcula as notas e salva os resultados da correção no Firestore, encerrando automaticamente a prova quando todos os alunos possuem resultado salvo.
 
 9\. O professor visualiza as análises e pode exportar e compartilhar as informações em CSV.
 
 ### 3.2 Capturas das Telas Principais
 
-As imagens devem representar o aplicativo em execução e seguir a sequência de navegação apresentada na seção anterior. **Os prints não acompanharam os arquivos enviados**; por isso, os locais abaixo estão preparados sem criar referências quebradas no GitHub.
-
-<!--
-Após adicionar os arquivos reais em docs/telas/, descomente os blocos desejados:
-
-![Tela de login](docs/telas/tela-login.png)
+![Tela de login](docs/screenshots/01-login.png)
 *Tela de login: autenticação do professor por e-mail e senha.*
 
-![Tela inicial](docs/telas/tela-home.png)
+![Tela de perfil](docs/screenshots/02-perfil.png)
+*Perfil: consulta e atualização das informações do professor.*
+
+![Tela inicial](docs/screenshots/03-inicial.png)
 *Tela inicial: indicadores e acesso aos módulos do aplicativo.*
 
-![Tela de turmas](docs/telas/tela-turmas.png)
+![Tela de turmas](docs/screenshots/04-turmas.png)
 *Tela de turmas: consulta e gerenciamento das turmas cadastradas.*
 
-![Tela do banco de questões](docs/telas/tela-questoes.png)
+![Tela do banco de questões](docs/screenshots/05-banco-questoes.png)
 *Banco de questões: cadastro e consulta das questões do professor.*
 
-![Tela de nova prova](docs/telas/tela-nova-prova.png)
-*Nova prova: configuração e seleção de questões para a avaliação.*
+![Tela de nova prova](docs/screenshots/06-nova-prova.png)
+*Nova prova: preenchimento dos dados iniciais da avaliação.*
 
-![Tela de correção](docs/telas/tela-correcao.png)
-*Correção: leitura de QR Code e conferência das respostas identificadas.*
+![Tela de correção](docs/screenshots/07-corrigir-prova.png)
+*Correção: seleção de provas abertas e instruções para iniciar a leitura do gabarito e das folhas de resposta.*
 
-![Tela de resultados](docs/telas/tela-resultados.png)
+![Tela de resultados](docs/screenshots/08-dashboard.png)
 *Resultados: análise do desempenho por prova, questão e aluno.*
-
-![Tela de perfil](docs/telas/tela-perfil.png)
-*Perfil: consulta e atualização das informações do professor.*
--->
 
 ## 4. Modelo de Dados
 
@@ -588,16 +523,17 @@ Cada alternativa é um **objeto embutido** no documento da questão, e não uma 
 | `turmaNome / turmaAno / turmaDisciplina / turmaPeriodo` | String | Informações descritivas da turma associada. |
 | `dataAplicacao` | Timestamp | Data planejada para a avaliação. |
 | `quantidadeQuestoes` | Number (inteiro) | Quantidade total de questões. |
-| `status` | String | Estado da prova, como `rascunho`. |
+| `status` | String | Estado da prova: `rascunho`, `ativa` ou `encerrada`. |
 | `embaralharQuestoes / embaralharAlternativas` | Boolean | Configurações de embaralhamento. |
-| `numeroVersoes` | Number (inteiro) | Número de versões previsto. |
+| `numeroVersoes` | Number (inteiro) | Número de versões configurado (1, 2 ou 4). |
 | `questoesIds` | Array<String> | Referências aos documentos do banco de questões. |
 | `questoesSnapshot` | Array<Map> | Cópia dos dados das questões associados à prova. |
+| `versoes` | Array<Map> (opcional) | Versões geradas, contendo número, questões e gabarito próprios. |
 | `gabaritoOficial` | Array<String> (opcional) | Alternativa correta de cada questão. |
 | `resumoResultado` | Map (opcional) | Estatísticas agregadas da correção. |
 | `criadoEm / atualizadoEm` | Timestamp | Datas de criação e atualização. |
 
-Os campos opcionais `gabaritoOficial` e `resumoResultado` podem estar ausentes até que o fluxo correspondente seja executado. O resumo inclui média, notas mínima e máxima, distribuição, número de folhas corrigidas e dados por questão.
+Os campos opcionais `versoes`, `gabaritoOficial` e `resumoResultado` podem estar ausentes até que o fluxo correspondente seja executado. O resumo inclui média, notas mínima e máxima, distribuição, número de folhas corrigidas e dados por questão.
 
 #### 4.2.6 Resultados por Aluno
 
@@ -652,30 +588,20 @@ A modelagem conceitual adicional já se encontra em `docs/firestore-modelagem.md
 ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black)
 
 | Tecnologia / pacote | Aplicação |
-
 | --- | --- |
-
 | **Flutter** | Desenvolvimento da interface multiplataforma. |
-
 | **Dart** | Linguagem de programação do aplicativo. |
-
 | **Material Design** | Componentes e padrões visuais da interface. |
-
 | **Firebase Authentication** | Cadastro, login, sessão e recuperação de senha. |
-
 | **Cloud Firestore** | Persistência de dados do professor, turmas, alunos, questões, provas e resultados. |
-
 | **file_picker** | Seleção de arquivos para importação. |
-
 | **csv / archive / xml** | Leitura e processamento de CSV/XLSX e geração de arquivos CSV. |
-
 | **mobile_scanner** | Leitura do QR Code do gabarito. |
-
 | **qr_flutter** | Geração e exibição do QR Code das provas. |
-
 | **camera / image** | Captura e análise experimental das marcações nas folhas. |
-
 | **share_plus** | Compartilhamento dos arquivos exportados. |
+| **pdf / printing** | Geração, visualização e exportação dos cadernos e folhas de resposta em PDF. |
+| **shared_preferences** | Persistência local da preferência de tema. |
 
 ## 6. Estrutura de Pastas
 
@@ -866,10 +792,10 @@ Esta seção registra **as tarefas efetivamente realizadas na N2**, organizadas 
 - **Autenticação:** Firebase Authentication
 - **Banco de dados:** Cloud Firestore (NoSQL)
 - **Plataforma principal:** Android, com configuração Firebase também para Web
-- **Estado atual:** em desenvolvimento, com persistência de provas e questões e leitura experimental das folhas
-- **Atualização da documentação:** 29 de outubro de 2026
+- **Estado atual:** em desenvolvimento, com geração de versões e PDFs, persistência de provas, questões e resultados e leitura experimental das folhas
+- **Atualização da documentação:** 23 de novembro de 2026
 
-O **Prova Certa** já possui uma base funcional para gerenciar usuários, turmas, alunos, questões, provas e resultados com persistência em nuvem. O foco das próximas etapas é aprimorar o reconhecimento das folhas de resposta, concluir a edição de provas e ampliar os testes para consolidar o fluxo de avaliações.
+O **Prova Certa** já possui uma base funcional para gerenciar usuários, turmas, alunos, questões, provas e resultados com persistência em nuvem. O foco das próximas etapas é aprimorar o reconhecimento das folhas de resposta, concluir a edição de provas, normalizar as estatísticas entre versões e ampliar os testes para consolidar o fluxo de avaliações.
 
 ---
 
