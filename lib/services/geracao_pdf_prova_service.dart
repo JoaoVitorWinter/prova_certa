@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../models/prova.dart';
 import '../models/questao.dart';
 import '../models/versao_prova.dart';
+import 'folha_respostas_layout.dart';
 
 class GeracaoPdfProvaService {
   Future<Uint8List> gerar({required Prova prova, int numeroVersao = 1}) async {
@@ -48,22 +49,18 @@ class GeracaoPdfProvaService {
   }
 
   void _adicionarVersao(pw.Document documento, Prova prova, int numeroVersao) {
-    if (prova.quantidadeQuestoes > 20) {
-      throw ArgumentError.value(
-        prova.quantidadeQuestoes,
-        'quantidadeQuestoes',
-        'Uma prova pode ter no máximo 20 questões.',
-      );
-    }
     final versao = _selecionarVersao(prova, numeroVersao);
     final questoes = versao?.questoes.isNotEmpty == true
         ? versao!.questoes
         : _questoesDaProva(prova);
+    final gabarito = versao?.gabarito ?? _gabaritoDaProva(prova, questoes);
     final qrData = jsonEncode({
       'app': 'prova_certa',
       'tipo': 'gabarito_prova',
       'versao': versao?.numero ?? numeroVersao,
       'provaId': prova.id,
+      'turmaId': prova.turma.id,
+      'gabarito': gabarito,
     });
 
     _adicionarCaderno(
@@ -95,6 +92,14 @@ class GeracaoPdfProvaService {
       return snapshot.map(Questao.fromMap).toList();
     }
     return prova.questoes.whereType<Questao>().toList();
+  }
+
+  List<String> _gabaritoDaProva(Prova prova, List<Questao> questoes) {
+    if (prova.gabaritoOficial != null &&
+        prova.gabaritoOficial!.length == questoes.length) {
+      return prova.gabaritoOficial!;
+    }
+    return questoes.map((questao) => questao.correta).toList();
   }
 
   void _adicionarCaderno(
@@ -293,7 +298,8 @@ class GeracaoPdfProvaService {
               style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
             ),
             pw.Text(
-              'Preencha o círculo até ficar visivelmente escuro, sem ultrapassar o contorno.',
+              'Preencha o círculo até ficar visivelmente escuro, sem ultrapassar o contorno. '
+              'Não rasure nem cubra os quadrados pretos dos cantos: eles orientam a leitura pela câmera.',
               style: const pw.TextStyle(fontSize: 8),
             ),
             pw.SizedBox(height: 8),
@@ -304,83 +310,142 @@ class GeracaoPdfProvaService {
     );
   }
 
+  /// Grade de respostas desenhada com geometria fixa (ver
+  /// [FolhaRespostasLayout]) e com quatro marcadores pretos nos cantos, que o
+  /// leitor usa para localizar as bolhas na fotografia.
   pw.Widget _tabelaRespostas(int quantidadeQuestoes) {
-    final quantidadePorGrupo = (quantidadeQuestoes / 2).ceil();
-    final inicioSegundoGrupo = quantidadePorGrupo;
-    return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Expanded(
-          child: _tabelaGrupo(quantidadeQuestoes, 1, quantidadePorGrupo),
-        ),
-        pw.SizedBox(width: 8),
-        pw.Expanded(
-          child: _tabelaGrupo(
-            quantidadeQuestoes,
-            inicioSegundoGrupo + 1,
-            quantidadeQuestoes,
+    final layout = FolhaRespostasLayout(quantidadeQuestoes);
+    const largura = FolhaRespostasLayout.largura;
+    final colunaAlternativa = layout.larguraColunaAlternativa;
+
+    pw.Widget celula(
+      String texto,
+      double larguraCelula,
+      double alturaCelula, {
+      bool negrito = false,
+      double tamanho = 9,
+    }) {
+      return pw.SizedBox(
+        width: larguraCelula,
+        height: alturaCelula,
+        child: pw.Center(
+          child: pw.Text(
+            texto,
+            style: pw.TextStyle(
+              fontSize: tamanho,
+              fontWeight: negrito ? pw.FontWeight.bold : pw.FontWeight.normal,
+            ),
           ),
         ),
-      ],
+      );
+    }
+
+    return pw.SizedBox(
+      width: largura,
+      height: layout.altura,
+      child: pw.Stack(
+        children: [
+          pw.Positioned(
+            left: 0,
+            top: 0,
+            child: pw.CustomPaint(
+              size: PdfPoint(largura, layout.altura),
+              painter: (canvas, size) => _desenharGrade(canvas, layout),
+            ),
+          ),
+          pw.Positioned(
+            left: layout.tabelaEsquerda,
+            top: layout.tabelaTopo,
+            child: celula(
+              'Questão',
+              FolhaRespostasLayout.larguraColunaQuestao,
+              FolhaRespostasLayout.alturaCabecalho,
+              negrito: true,
+              tamanho: 8.5,
+            ),
+          ),
+          for (var i = 0; i < FolhaRespostasLayout.alternativas.length; i++)
+            pw.Positioned(
+              left: layout.centroXAlternativa(i) - colunaAlternativa / 2,
+              top: layout.tabelaTopo,
+              child: celula(
+                FolhaRespostasLayout.alternativas[i],
+                colunaAlternativa,
+                FolhaRespostasLayout.alturaCabecalho,
+                negrito: true,
+                tamanho: 10,
+              ),
+            ),
+          for (var q = 0; q < quantidadeQuestoes; q++)
+            pw.Positioned(
+              left: layout.tabelaEsquerda,
+              top: layout.centroYQuestao(q) - FolhaRespostasLayout.alturaLinha / 2,
+              child: celula(
+                '${q + 1}',
+                FolhaRespostasLayout.larguraColunaQuestao,
+                FolhaRespostasLayout.alturaLinha,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  pw.Widget _tabelaGrupo(int quantidadeQuestoes, int inicio, int fim) {
-    if (inicio > quantidadeQuestoes) {
-      return pw.SizedBox();
-    }
+  /// Desenha marcadores, linhas e bolhas. O PDF usa a origem no canto
+  /// inferior esquerdo, por isso as coordenadas verticais são invertidas.
+  void _desenharGrade(PdfGraphics canvas, FolhaRespostasLayout layout) {
+    final altura = layout.altura;
+    double y(double topo) => altura - topo;
 
-    final fimReal = fim > quantidadeQuestoes ? quantidadeQuestoes : fim;
-    final headers = ['Questão', 'A', 'B', 'C', 'D', 'E'];
-    return pw.Table(
-      border: pw.TableBorder.all(width: .7),
-      columnWidths: const {
-        0: pw.FixedColumnWidth(42),
-        1: pw.FlexColumnWidth(),
-        2: pw.FlexColumnWidth(),
-        3: pw.FlexColumnWidth(),
-        4: pw.FlexColumnWidth(),
-        5: pw.FlexColumnWidth(),
-      },
-      children: [
-        pw.TableRow(
-          children: [
-            for (final header in headers)
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(5),
-                child: pw.Center(
-                  child: pw.Text(
-                    header,
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        for (var questao = inicio; questao <= fimReal; questao++)
-          pw.TableRow(
-            children: [
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(3),
-                child: pw.Center(child: pw.Text('$questao')),
-              ),
-              for (var alternativa = 0; alternativa < 5; alternativa++)
-                pw.Padding(
-                  padding: const pw.EdgeInsets.all(3),
-                  child: pw.Center(
-                    child: pw.Container(
-                      width: 15,
-                      height: 15,
-                      decoration: pw.BoxDecoration(
-                        shape: pw.BoxShape.circle,
-                        border: pw.Border.all(width: 1),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-      ],
-    );
+    // Marcadores de referência (quadrados pretos cheios).
+    canvas.setFillColor(PdfColors.black);
+    const lado = FolhaRespostasLayout.tamanhoMarcador;
+    for (final centro in layout.centrosMarcadores) {
+      canvas.drawRect(
+        centro.x - lado / 2,
+        y(centro.y + lado / 2),
+        lado,
+        lado,
+      );
+    }
+    canvas.fillPath();
+
+    // Linhas da tabela.
+    canvas
+      ..setStrokeColor(PdfColors.black)
+      ..setLineWidth(0.7);
+    final esquerda = layout.tabelaEsquerda;
+    final direita = esquerda + layout.larguraTabela;
+    final topo = layout.tabelaTopo;
+    final base = topo + layout.alturaTabela;
+    canvas.drawRect(esquerda, y(base), layout.larguraTabela, layout.alturaTabela);
+    for (var q = 0; q < layout.quantidadeQuestoes; q++) {
+      final linha = topo +
+          FolhaRespostasLayout.alturaCabecalho +
+          FolhaRespostasLayout.alturaLinha * q;
+      canvas.drawLine(esquerda, y(linha), direita, y(linha));
+    }
+    for (var i = 0; i < FolhaRespostasLayout.alternativas.length; i++) {
+      final coluna = esquerda +
+          FolhaRespostasLayout.larguraColunaQuestao +
+          layout.larguraColunaAlternativa * i;
+      canvas.drawLine(coluna, y(topo), coluna, y(base));
+    }
+    canvas.strokePath();
+
+    // Bolhas.
+    canvas.setLineWidth(1);
+    const raio = FolhaRespostasLayout.diametroBolha / 2;
+    for (var q = 0; q < layout.quantidadeQuestoes; q++) {
+      for (var i = 0; i < FolhaRespostasLayout.alternativas.length; i++) {
+        canvas.drawEllipse(
+          layout.centroXAlternativa(i),
+          y(layout.centroYQuestao(q)),
+          raio,
+          raio,
+        );
+      }
+    }
+    canvas.strokePath();
   }
 }

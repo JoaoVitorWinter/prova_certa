@@ -19,7 +19,10 @@ class FaixaDistribuicao {
   FaixaDistribuicao({required this.faixa, required this.quantidade});
 
   Map<String, dynamic> toMap() {
-    return {'faixa': faixa, 'quantidade': quantidade};
+    return {
+      'faixa': faixa,
+      'quantidade': quantidade,
+    };
   }
 
   factory FaixaDistribuicao.fromMap(Map<String, dynamic> map) {
@@ -32,14 +35,12 @@ class FaixaDistribuicao {
 
 class AlternativaDistribuicao {
   final String letra;
-  final String texto;
   final int quantidade;
   final double percentual;
   final bool correta;
 
   AlternativaDistribuicao({
     required this.letra,
-    this.texto = '',
     required this.quantidade,
     required this.percentual,
     required this.correta,
@@ -48,7 +49,6 @@ class AlternativaDistribuicao {
   Map<String, dynamic> toMap() {
     return {
       'letra': letra,
-      'texto': texto,
       'quantidade': quantidade,
       'percentual': percentual,
       'correta': correta,
@@ -58,7 +58,6 @@ class AlternativaDistribuicao {
   factory AlternativaDistribuicao.fromMap(Map<String, dynamic> map) {
     return AlternativaDistribuicao(
       letra: map['letra'] as String? ?? '',
-      texto: map['texto'] as String? ?? '',
       quantidade: (map['quantidade'] as num?)?.toInt() ?? 0,
       percentual: (map['percentual'] as num?)?.toDouble() ?? 0.0,
       correta: map['correta'] as bool? ?? false,
@@ -68,14 +67,12 @@ class AlternativaDistribuicao {
 
 class ResultadoQuestao {
   final int numero;
-  final String enunciado;
   final String alternativaCorreta;
   final double percentualAcerto;
   final List<AlternativaDistribuicao> alternativas;
 
   ResultadoQuestao({
     required this.numero,
-    this.enunciado = '',
     required this.alternativaCorreta,
     required this.percentualAcerto,
     required this.alternativas,
@@ -84,7 +81,6 @@ class ResultadoQuestao {
   Map<String, dynamic> toMap() {
     return {
       'numero': numero,
-      'enunciado': enunciado,
       'alternativaCorreta': alternativaCorreta,
       'percentualAcerto': percentualAcerto,
       'alternativas': alternativas.map((a) => a.toMap()).toList(),
@@ -94,16 +90,11 @@ class ResultadoQuestao {
   factory ResultadoQuestao.fromMap(Map<String, dynamic> map) {
     final rawAlternativas = map['alternativas'] as List<dynamic>? ?? [];
     final alternativas = rawAlternativas
-        .map(
-          (a) => AlternativaDistribuicao.fromMap(
-            Map<String, dynamic>.from(a as Map),
-          ),
-        )
+        .map((a) => AlternativaDistribuicao.fromMap(Map<String, dynamic>.from(a as Map)))
         .toList();
 
     return ResultadoQuestao(
       numero: (map['numero'] as num?)?.toInt() ?? 0,
-      enunciado: map['enunciado'] as String? ?? '',
       alternativaCorreta: map['alternativaCorreta'] as String? ?? '',
       percentualAcerto: (map['percentualAcerto'] as num?)?.toDouble() ?? 0.0,
       alternativas: alternativas,
@@ -119,9 +110,6 @@ class ResultadoAluno {
   final List<String> alternativasMarcadas;
   final String? provaId;
   final String? turmaId;
-  final int? numeroVersao;
-  final List<String>? gabaritoCorreto;
-  final List<Map<String, dynamic>>? questoesSnapshot;
   final DateTime? corrigidoEm;
 
   ResultadoAluno({
@@ -132,9 +120,6 @@ class ResultadoAluno {
     required this.alternativasMarcadas,
     this.provaId,
     this.turmaId,
-    this.numeroVersao,
-    this.gabaritoCorreto,
-    this.questoesSnapshot,
     this.corrigidoEm,
   });
 
@@ -150,9 +135,6 @@ class ResultadoAluno {
       'alternativasMarcadas': alternativasMarcadas,
       'provaId': provaId,
       'turmaId': turmaId,
-      'numeroVersao': numeroVersao,
-      'gabaritoCorreto': gabaritoCorreto,
-      'questoesSnapshot': questoesSnapshot,
       'corrigidoEm': corrigidoEm?.toIso8601String(),
     };
   }
@@ -161,17 +143,13 @@ class ResultadoAluno {
     return {
       'alunoId': aluno.id,
       'alunoNome': aluno.nome,
-      'alunoRa':
-          aluno.ra, // Preserva explicitamente como String com zeros à esquerda
+      'alunoRa': aluno.ra, // Preserva explicitamente como String com zeros à esquerda
       'nota': nota,
       'acertos': acertos,
       'totalQuestoes': alternativasMarcadas.length,
       'alternativasMarcadas': alternativasMarcadas,
       if (provaId != null) 'provaId': provaId,
       if (turmaId != null) 'turmaId': turmaId,
-      if (numeroVersao != null) 'numeroVersao': numeroVersao,
-      if (gabaritoCorreto != null) 'gabaritoCorreto': gabaritoCorreto,
-      if (questoesSnapshot != null) 'questoesSnapshot': questoesSnapshot,
       'corrigidoEm': corrigidoEm != null
           ? Timestamp.fromDate(corrigidoEm!)
           : FieldValue.serverTimestamp(),
@@ -186,8 +164,6 @@ class ResultadoAluno {
     required List<String> gabarito,
     String? provaId,
     String? turmaId,
-    int? numeroVersao,
-    List<Map<String, dynamic>>? questoesSnapshot,
     DateTime? corrigidoEm,
   }) {
     final marcadas = List<String>.generate(
@@ -210,9 +186,6 @@ class ResultadoAluno {
       alternativasMarcadas: marcadas,
       provaId: provaId,
       turmaId: turmaId,
-      numeroVersao: numeroVersao,
-      gabaritoCorreto: List<String>.from(gabarito),
-      questoesSnapshot: questoesSnapshot,
       corrigidoEm: corrigidoEm ?? DateTime.now(),
     );
   }
@@ -222,8 +195,7 @@ class ResultadoAluno {
     String? id,
     Aluno? aluno,
   }) {
-    final resolvedAluno =
-        aluno ??
+    final resolvedAluno = aluno ??
         Aluno(
           id: map['alunoId'] as String? ?? id ?? '',
           nome: map['alunoNome'] as String? ?? '',
@@ -232,13 +204,6 @@ class ResultadoAluno {
 
     final rawMarcadas = map['alternativasMarcadas'] as List<dynamic>? ?? [];
     final marcadas = rawMarcadas.map((e) => e.toString()).toList();
-    final rawGabarito = map['gabaritoCorreto'] as List<dynamic>? ?? [];
-    final gabaritoCorreto = rawGabarito.map((e) => e.toString()).toList();
-    final rawQuestoes = map['questoesSnapshot'] as List<dynamic>? ?? [];
-    final questoesSnapshot = rawQuestoes
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
 
     return ResultadoAluno(
       id: id ?? map['id'] as String?,
@@ -248,9 +213,6 @@ class ResultadoAluno {
       alternativasMarcadas: marcadas,
       provaId: map['provaId'] as String?,
       turmaId: map['turmaId'] as String?,
-      numeroVersao: (map['numeroVersao'] as num?)?.toInt(),
-      gabaritoCorreto: gabaritoCorreto.isEmpty ? null : gabaritoCorreto,
-      questoesSnapshot: questoesSnapshot.isEmpty ? null : questoesSnapshot,
       corrigidoEm: _parseDateTime(map['corrigidoEm']),
     );
   }
@@ -271,9 +233,6 @@ class ResultadoAluno {
     List<String>? alternativasMarcadas,
     String? provaId,
     String? turmaId,
-    int? numeroVersao,
-    List<String>? gabaritoCorreto,
-    List<Map<String, dynamic>>? questoesSnapshot,
     DateTime? corrigidoEm,
   }) {
     return ResultadoAluno(
@@ -284,9 +243,6 @@ class ResultadoAluno {
       alternativasMarcadas: alternativasMarcadas ?? this.alternativasMarcadas,
       provaId: provaId ?? this.provaId,
       turmaId: turmaId ?? this.turmaId,
-      numeroVersao: numeroVersao ?? this.numeroVersao,
-      gabaritoCorreto: gabaritoCorreto ?? this.gabaritoCorreto,
-      questoesSnapshot: questoesSnapshot ?? this.questoesSnapshot,
       corrigidoEm: corrigidoEm ?? this.corrigidoEm,
     );
   }
@@ -321,15 +277,10 @@ class ResultadoProva {
     required List<ResultadoAluno> porAluno,
   }) {
     final alunos = List<ResultadoAluno>.of(porAluno)
-      ..sort(
-        (a, b) =>
-            a.aluno.nome.toLowerCase().compareTo(b.aluno.nome.toLowerCase()),
-      );
+      ..sort((a, b) => a.aluno.nome.toLowerCase().compareTo(b.aluno.nome.toLowerCase()));
     final notas = alunos.map((r) => r.nota).toList();
 
-    final media = notas.isEmpty
-        ? 0.0
-        : notas.reduce((a, b) => a + b) / notas.length;
+    final media = notas.isEmpty ? 0.0 : notas.reduce((a, b) => a + b) / notas.length;
     final minimo = notas.isEmpty ? 0.0 : notas.reduce((a, b) => a < b ? a : b);
     final maximo = notas.isEmpty ? 0.0 : notas.reduce((a, b) => a > b ? a : b);
 
@@ -339,150 +290,35 @@ class ResultadoProva {
       contagemFaixas[indice]++;
     }
 
-    // Considera o gabarito individual de cada aluno ao agregar por questão.
-    final usaE =
-        gabarito.contains('E') ||
-        alunos.any(
-          (r) =>
-              r.gabaritoCorreto?.contains('E') == true ||
-              r.alternativasMarcadas.contains('E'),
-        );
+    // Mostra sempre A–D; E só aparece se estiver no gabarito ou em alguma resposta.
+    final usaE = gabarito.contains('E') ||
+        alunos.any((r) => r.alternativasMarcadas.contains('E'));
     final letras = ['A', 'B', 'C', 'D', if (usaE) 'E'];
 
     final porQuestao = <ResultadoQuestao>[];
-    final questoesOriginais = prova.extrairQuestoesSnapshot();
-    final questoesAgrupadas = <String, Map<String, dynamic>>{};
-
-    List<Map<String, dynamic>>? resolverSnapshot(ResultadoAluno r) {
-      if (r.questoesSnapshot != null) return r.questoesSnapshot;
-      for (final versao in prova.versoes ?? const []) {
-        if (versao.numero == r.numeroVersao) {
-          final snapshot = <Map<String, dynamic>>[];
-          for (final questao in versao.questoes) {
-            snapshot.add(Map<String, dynamic>.from(questao.toMap()));
-          }
-          return snapshot;
-        }
-      }
-      if (questoesOriginais.isNotEmpty) return questoesOriginais;
-      if (gabarito.isNotEmpty) {
-        return List<Map<String, dynamic>>.generate(
-          gabarito.length,
-          (i) => <String, dynamic>{},
-        );
-      }
-      return null;
-    }
-
-    for (var i = 0; i < questoesOriginais.length; i++) {
-      final questao = questoesOriginais[i];
-      final id = questao['id']?.toString().trim();
-      questoesAgrupadas['${id?.isNotEmpty == true ? id : 'posicao_$i'}'] =
-          questao;
-    }
-    if (questoesAgrupadas.isEmpty) {
-      for (var i = 0; i < gabarito.length; i++) {
-        questoesAgrupadas['posicao_$i'] = <String, dynamic>{};
-      }
-    }
-
-    for (final r in alunos) {
-      final snapshot = resolverSnapshot(r);
-      if (snapshot == null) continue;
-      for (var i = 0; i < snapshot.length; i++) {
-        final questao = snapshot[i];
-        final id = questao['id']?.toString().trim();
-        final chave = id?.isNotEmpty == true ? id! : 'posicao_$i';
-        questoesAgrupadas.putIfAbsent(chave, () => questao);
-      }
-    }
-
-    var numero = 1;
-    for (final entrada in questoesAgrupadas.entries) {
-      final chave = entrada.key;
-      final questaoCanonical = entrada.value;
-      final enunciado = questaoCanonical['enunciado']?.toString() ?? '';
-      final alternativasOriginais = <String, String>{};
-      final rawAlternativas =
-          questaoCanonical['alternativas'] as List<dynamic>? ?? const [];
-      for (final raw in rawAlternativas) {
-        if (raw is Map) {
-          final letra = raw['letra']?.toString() ?? '';
-          final texto = raw['texto']?.toString() ?? '';
-          if (letra.isNotEmpty) alternativasOriginais[letra] = texto;
-        }
-      }
-
-      var totalAplicavel = 0;
-      var acertos = 0;
-      final contagem = <String, int>{for (final letra in letras) letra: 0};
-      final gabaritosNaQuestao = <String>{};
-
-      for (final r in alunos) {
-        final snapshot = resolverSnapshot(r);
-        if (snapshot == null) continue;
-
-        for (var i = 0; i < snapshot.length; i++) {
-          final questao = snapshot[i];
-          final id = questao['id']?.toString().trim();
-          final chaveAluno = id?.isNotEmpty == true ? id! : 'posicao_$i';
-          if (chaveAluno != chave) continue;
-
-          final gabaritoAluno = r.gabaritoCorreto ?? gabarito;
-          if (i >= gabaritoAluno.length || i >= r.alternativasMarcadas.length) {
-            continue;
-          }
-
-          final marcadaVersao = r.alternativasMarcadas[i].trim().toUpperCase();
-          final corretaVersao = gabaritoAluno[i].trim().toUpperCase();
-          final mappingVersaoParaOriginal = <String, String>{};
-          final rawAlternativas =
-              questao['alternativas'] as List<dynamic>? ?? const [];
-          for (final raw in rawAlternativas) {
-            if (raw is Map) {
-              final letraVersao =
-                  raw['letra']?.toString().trim().toUpperCase() ?? '';
-              final letraOriginal =
-                  raw['letraOriginal']?.toString().trim().toUpperCase() ??
-                  letraVersao;
-              if (letraVersao.isNotEmpty) {
-                mappingVersaoParaOriginal[letraVersao] = letraOriginal;
-              }
-            }
-          }
-          final marcadaOriginal =
-              mappingVersaoParaOriginal[marcadaVersao] ?? marcadaVersao;
-          final corretaOriginal =
-              mappingVersaoParaOriginal[corretaVersao] ?? corretaVersao;
-          contagem[marcadaOriginal] = (contagem[marcadaOriginal] ?? 0) + 1;
-          gabaritosNaQuestao.add(corretaOriginal);
-          totalAplicavel++;
-          if (marcadaOriginal == corretaOriginal) acertos++;
-        }
-      }
-
+    for (var i = 0; i < gabarito.length; i++) {
+      final correta = gabarito[i];
+      final total = alunos.length;
       final alternativas = letras.map((letra) {
-        final quantidade = contagem[letra] ?? 0;
+        final quantidade = alunos
+            .where((r) => i < r.alternativasMarcadas.length && r.alternativasMarcadas[i] == letra)
+            .length;
         return AlternativaDistribuicao(
           letra: letra,
-          texto: alternativasOriginais[letra] ?? '',
           quantidade: quantidade,
-          percentual: totalAplicavel == 0
-              ? 0
-              : (quantidade / totalAplicavel) * 100,
-          correta: gabaritosNaQuestao.contains(letra),
+          percentual: total == 0 ? 0 : (quantidade / total) * 100,
+          correta: letra == correta,
         );
       }).toList();
+      final acertos = alternativas
+          .where((a) => a.correta)
+          .fold<int>(0, (soma, a) => soma + a.quantidade);
 
-      final gabaritosOrdenados = gabaritosNaQuestao.toList()..sort();
       porQuestao.add(
         ResultadoQuestao(
-          numero: numero++,
-          enunciado: enunciado,
-          alternativaCorreta: gabaritosOrdenados.join(' / '),
-          percentualAcerto: totalAplicavel == 0
-              ? 0
-              : (acertos / totalAplicavel) * 100,
+          numero: i + 1,
+          alternativaCorreta: correta,
+          percentualAcerto: total == 0 ? 0 : (acertos / total) * 100,
           alternativas: alternativas,
         ),
       );
@@ -495,10 +331,7 @@ class ResultadoProva {
       maximo: maximo,
       distribuicao: [
         for (var i = 0; i < faixasNota.length; i++)
-          FaixaDistribuicao(
-            faixa: faixasNota[i],
-            quantidade: contagemFaixas[i],
-          ),
+          FaixaDistribuicao(faixa: faixasNota[i], quantidade: contagemFaixas[i]),
       ],
       porQuestao: porQuestao,
       porAluno: alunos,
@@ -524,16 +357,12 @@ class ResultadoProva {
   }) {
     final rawDistribuicao = resumo['distribuicao'] as List<dynamic>? ?? [];
     final distribuicao = rawDistribuicao
-        .map(
-          (d) => FaixaDistribuicao.fromMap(Map<String, dynamic>.from(d as Map)),
-        )
+        .map((d) => FaixaDistribuicao.fromMap(Map<String, dynamic>.from(d as Map)))
         .toList();
 
     final rawQuestoes = resumo['porQuestao'] as List<dynamic>? ?? [];
     final porQuestao = rawQuestoes
-        .map(
-          (q) => ResultadoQuestao.fromMap(Map<String, dynamic>.from(q as Map)),
-        )
+        .map((q) => ResultadoQuestao.fromMap(Map<String, dynamic>.from(q as Map)))
         .toList();
 
     return ResultadoProva(
