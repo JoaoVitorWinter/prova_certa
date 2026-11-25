@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/prova.dart';
 import '../services/prova_service.dart';
 import '../widgets/app_bottom_navigation.dart';
-import 'gabarito_qr_screen.dart';
+import 'folhas_screen.dart';
 import 'home_screen.dart';
 import 'provas_screen.dart';
 import 'resultados_screen.dart';
@@ -289,10 +289,10 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
 
   Widget _buildComoFunciona() {
     final passos = [
-      'Leia o QR code do gabarito da prova',
-      'Leia a folha de resposta do aluno',
-      'O sistema compara as respostas lidas com o gabarito oficial',
-      'Ao finalizar, veja os resultados completos',
+      'Escolha o aluno',
+      'Leia o QR code da folha para identificar a versão',
+      'Fotografe ou informe manualmente as respostas do aluno',
+      'O sistema compara as respostas com o gabarito oficial da versão',
     ];
 
     return Container(
@@ -378,7 +378,7 @@ class _CorrigirProvaScreenState extends State<CorrigirProvaScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            GabaritoQrScreen(prova: _provaSelecionada!),
+                            FolhasScreen(prova: _provaSelecionada!),
                       ),
                     );
                   }

@@ -36,28 +36,31 @@ class LeituraFolhaService {
       );
     }
 
-    // Coordenadas recalibradas com a imagem enviada (698 x 636).
-    // Centros das cinco colunas de círculos A, B, C, D e E.
-    const centersX = <double>[0.374, 0.448, 0.523, 0.596, 0.670];
-
-    // Centros aproximados da primeira e última linha da grelha.
-    // A grelha mostrada tem 15 linhas. Para outras quantidades, os centros
-    // são interpolados entre estes limites.
-    const firstRowY = 0.326;
-    const lastRowY = 0.956;
-
+    // Nova folha A4 em retrato: duas colunas de até 10 questões.
+    // Q1-10 ficam à esquerda; Q11-20 à direita.
+    const leftCentersX = <double>[0.178, 0.249, 0.321, 0.392, 0.463];
+    const rightCentersX = <double>[0.615, 0.686, 0.757, 0.828, 0.899];
+    const firstRowY = 0.315;
+    const lastRowY = 0.555;
+    final rowsPorColuna = (quantidadeQuestoes / 2).ceil();
     final answers = <String?>[];
-    final rowStep = quantidadeQuestoes == 1
-        ? 0.0
-        : (lastRowY - firstRowY) / (quantidadeQuestoes - 1);
 
     for (var q = 0; q < quantidadeQuestoes; q++) {
-      final y = ((firstRowY + rowStep * q) * image.height).round();
+      final isSecondColumn = q >= rowsPorColuna;
+      final rowIndex = isSecondColumn ? q - rowsPorColuna : q;
+      final y = rowsPorColuna == 1
+          ? (firstRowY * image.height).round()
+          : ((firstRowY +
+                        (lastRowY - firstRowY) *
+                            rowIndex /
+                            (rowsPorColuna - 1)) *
+                    image.height)
+                .round();
+      final centersX = isSecondColumn ? rightCentersX : leftCentersX;
       final darkness = <double>[];
 
       for (final xNorm in centersX) {
-        final x = (xNorm * image.width).round();
-        darkness.add(_circleFillScore(image, x, y));
+        darkness.add(_melhorScoreNaVizinhanca(image, xNorm, y));
       }
 
       final ranked = List<double>.from(darkness)..sort();
@@ -95,8 +98,7 @@ class LeituraFolhaService {
         if (dx * dx + dy * dy > radius * radius) continue;
 
         final pixel = image.getPixel(x, y);
-        final luminance =
-            0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b;
+        final luminance = 0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b;
         luminanceSum += luminance;
         if (luminance < 90) darkPixels++;
         count++;
@@ -110,5 +112,20 @@ class LeituraFolhaService {
     final darkness = (255 - averageLuminance) / 255;
 
     return (darkRatio * 0.75 + darkness * 0.25).clamp(0.0, 1.0);
+  }
+
+  double _melhorScoreNaVizinhanca(img.Image image, double xNorm, int y) {
+    var melhor = 0.0;
+    final deslocamentoY = math.max(3, (image.height * 0.012).round());
+    final deslocamentoX = math.max(3, (image.width * 0.012).round());
+    final centroX = (xNorm * image.width).round();
+
+    for (var dy = -deslocamentoY; dy <= deslocamentoY; dy += 3) {
+      for (var dx = -deslocamentoX; dx <= deslocamentoX; dx += 3) {
+        final score = _circleFillScore(image, centroX + dx, y + dy);
+        if (score > melhor) melhor = score;
+      }
+    }
+    return melhor;
   }
 }

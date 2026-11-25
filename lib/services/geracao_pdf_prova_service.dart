@@ -48,18 +48,22 @@ class GeracaoPdfProvaService {
   }
 
   void _adicionarVersao(pw.Document documento, Prova prova, int numeroVersao) {
+    if (prova.quantidadeQuestoes > 20) {
+      throw ArgumentError.value(
+        prova.quantidadeQuestoes,
+        'quantidadeQuestoes',
+        'Uma prova pode ter no máximo 20 questões.',
+      );
+    }
     final versao = _selecionarVersao(prova, numeroVersao);
     final questoes = versao?.questoes.isNotEmpty == true
         ? versao!.questoes
         : _questoesDaProva(prova);
-    final gabarito = versao?.gabarito ?? _gabaritoDaProva(prova, questoes);
     final qrData = jsonEncode({
       'app': 'prova_certa',
       'tipo': 'gabarito_prova',
       'versao': versao?.numero ?? numeroVersao,
       'provaId': prova.id,
-      'turmaId': prova.turma.id,
-      'gabarito': gabarito,
     });
 
     _adicionarCaderno(
@@ -91,14 +95,6 @@ class GeracaoPdfProvaService {
       return snapshot.map(Questao.fromMap).toList();
     }
     return prova.questoes.whereType<Questao>().toList();
-  }
-
-  List<String> _gabaritoDaProva(Prova prova, List<Questao> questoes) {
-    if (prova.gabaritoOficial != null &&
-        prova.gabaritoOficial!.length == questoes.length) {
-      return prova.gabaritoOficial!;
-    }
-    return questoes.map((questao) => questao.correta).toList();
   }
 
   void _adicionarCaderno(
@@ -309,11 +305,37 @@ class GeracaoPdfProvaService {
   }
 
   pw.Widget _tabelaRespostas(int quantidadeQuestoes) {
+    final quantidadePorGrupo = (quantidadeQuestoes / 2).ceil();
+    final inicioSegundoGrupo = quantidadePorGrupo;
+    return pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Expanded(
+          child: _tabelaGrupo(quantidadeQuestoes, 1, quantidadePorGrupo),
+        ),
+        pw.SizedBox(width: 8),
+        pw.Expanded(
+          child: _tabelaGrupo(
+            quantidadeQuestoes,
+            inicioSegundoGrupo + 1,
+            quantidadeQuestoes,
+          ),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _tabelaGrupo(int quantidadeQuestoes, int inicio, int fim) {
+    if (inicio > quantidadeQuestoes) {
+      return pw.SizedBox();
+    }
+
+    final fimReal = fim > quantidadeQuestoes ? quantidadeQuestoes : fim;
     final headers = ['Questão', 'A', 'B', 'C', 'D', 'E'];
     return pw.Table(
       border: pw.TableBorder.all(width: .7),
       columnWidths: const {
-        0: pw.FixedColumnWidth(55),
+        0: pw.FixedColumnWidth(42),
         1: pw.FlexColumnWidth(),
         2: pw.FlexColumnWidth(),
         3: pw.FlexColumnWidth(),
@@ -335,7 +357,7 @@ class GeracaoPdfProvaService {
               ),
           ],
         ),
-        for (var questao = 1; questao <= quantidadeQuestoes; questao++)
+        for (var questao = inicio; questao <= fimReal; questao++)
           pw.TableRow(
             children: [
               pw.Padding(
