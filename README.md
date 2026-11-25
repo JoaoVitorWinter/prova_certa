@@ -92,7 +92,6 @@ A finalidade é reduzir a dependência de registros manuais, melhorar a organiza
 - **Dashboard:** apresentação de informações associadas aos dados do professor, como quantidade de alunos, correções e atividades recentes disponíveis.
 - **Correções e resultados:** cálculo e persistência dos resultados gerados pelo fluxo de correção, com consultas por aluno e por questão e encerramento automático da prova quando todos os alunos da turma possuem resultado salvo.
 - **Exportação:** geração de arquivos CSV de notas e análise por questão, com possibilidade de compartilhamento pelo dispositivo.
-- **Aparência:** seleção de tema claro, escuro ou do sistema, com persistência local da preferência.
 - **Segurança e navegação:** associação das informações ao UID autenticado, regras de acesso do Firestore e controle de acesso a telas por sessão.
 
 #### 1.2.2. Funcionalidades parciais ou experimentais
@@ -150,7 +149,6 @@ Os requisitos a seguir descrevem as funções previstas para a aplicação e ind
 | **RF22** | O sistema deve permitir gerar versões de provas com embaralhamento opcional de questões e alternativas e gabarito por versão. | Implementado |
 | **RF23** | O sistema deve permitir visualizar e exportar cadernos e folhas de resposta em PDF, individualmente ou em lote. | Implementado |
 | **RF24** | O sistema deve encerrar automaticamente a prova quando todos os alunos da turma tiverem resultado salvo. | Implementado |
-| **RF25** | O sistema deve permitir selecionar e persistir localmente a preferência de tema. | Implementado |
 
 ### 2.2 Não Funcionais (RNF)
 
@@ -197,7 +195,7 @@ Os requisitos a seguir descrevem as funções previstas para a aplicação e ind
 | **Exportação / compartilhamento** | Gerar e compartilhar arquivos CSV. | Funcional |
 | **Perfil** | Consultar informações do docente. | Integrada ao Firestore |
 | **Editar perfil** | Atualizar dados do professor. | Integrada ao Firestore |
-| **Configurações / notificações / aparência / sobre** | Apresentar opções e informações complementares. | Algumas funções demonstrativas |
+| **Configurações / notificações / sobre** | Apresentar opções e informações complementares. | Algumas funções demonstrativas |
 
 ### 3.1 Fluxo Principal de Utilização
 
@@ -601,7 +599,6 @@ A modelagem conceitual adicional já se encontra em `docs/firestore-modelagem.md
 | **camera / image** | Captura e análise experimental das marcações nas folhas. |
 | **share_plus** | Compartilhamento dos arquivos exportados. |
 | **pdf / printing** | Geração, visualização e exportação dos cadernos e folhas de resposta em PDF. |
-| **shared_preferences** | Persistência local da preferência de tema. |
 
 ## 6. Estrutura de Pastas
 

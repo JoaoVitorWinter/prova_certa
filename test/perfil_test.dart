@@ -7,16 +7,11 @@ import 'package:prova_certa/models/prova.dart';
 import 'package:prova_certa/models/questao.dart';
 import 'package:prova_certa/models/turma.dart';
 import 'package:prova_certa/models/usuario.dart';
-import 'package:prova_certa/main.dart';
-import 'package:prova_certa/screens/appearance_screen.dart';
 import 'package:prova_certa/screens/profile_screen.dart';
 import 'package:prova_certa/services/auth_service.dart';
 import 'package:prova_certa/services/prova_service.dart';
 import 'package:prova_certa/services/questao_service.dart';
 import 'package:prova_certa/services/turma_service.dart';
-import 'package:prova_certa/services/theme_service.dart';
-import 'package:prova_certa/utils/app_theme.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAuthService extends AuthService {
   @override
@@ -282,9 +277,9 @@ void main() {
     });
   });
 
-  group('2. Remoção da Opção Notificações no Perfil', () {
+  group('2. Opções Removidas no Perfil', () {
     testWidgets(
-        'Opção Notificações foi completamente removida e demais itens foram preservados',
+        'Opções Notificações e Aparência foram removidas e demais itens foram preservados',
         (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -298,142 +293,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Opção removida
+      // Opções removidas
       expect(find.text('Notificações'), findsNothing);
       expect(find.text('Alertas e avisos do sistema'), findsNothing);
+      expect(find.text('Aparência'), findsNothing);
+      expect(find.text('Tema claro / escuro'), findsNothing);
 
       // Opções preservadas
       expect(find.text('Editar perfil'), findsOneWidget);
       expect(find.text('Nome e informações pessoais'), findsOneWidget);
-
-      expect(find.text('Aparência'), findsOneWidget);
-      expect(find.text('Tema claro / escuro'), findsOneWidget);
-
       expect(find.text('Sobre o app'), findsOneWidget);
       expect(find.text('Sair da conta'), findsOneWidget);
-    });
-  });
-
-  group('3. Funcionalidade Aparência e Gerenciamento de Tema', () {
-    setUp(() {
-      SharedPreferences.setMockInitialValues({});
-    });
-
-    test('ThemeService: gerencia Claro, Escuro e Sistema com persistência local',
-        () async {
-      final themeService = ThemeService();
-      await themeService.inicializar();
-
-      // Padrão inicial é Claro
-      expect(themeService.themeMode, equals(ThemeMode.light));
-      expect(themeService.temaAtualNome, equals('Claro'));
-
-      // Altera para Escuro
-      var notificou = false;
-      themeService.addListener(() => notificou = true);
-      await themeService.definirTema('Escuro');
-
-      expect(notificou, isTrue);
-      expect(themeService.themeMode, equals(ThemeMode.dark));
-      expect(themeService.temaAtualNome, equals('Escuro'));
-
-      // Altera para Sistema
-      await themeService.definirTema('Sistema');
-      expect(themeService.themeMode, equals(ThemeMode.system));
-      expect(themeService.temaAtualNome, equals('Sistema'));
-
-      // Nova instância recarrega valor salvo 'sistema'
-      final novoService = ThemeService();
-      await novoService.inicializar();
-      expect(novoService.themeMode, equals(ThemeMode.system));
-    });
-
-    testWidgets(
-        'AppearanceScreen: exibe opções Claro, Escuro e Sistema e atualiza seleção',
-        (tester) async {
-      final themeService = ThemeService();
-      await themeService.inicializar();
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppearanceScreen(themeService: themeService),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('TEMA DO APLICATIVO'), findsOneWidget);
-      expect(find.text('Claro'), findsOneWidget);
-      expect(find.text('Escuro'), findsOneWidget);
-      expect(find.text('Usar padrão do sistema'), findsOneWidget);
-      expect(
-        find.text(
-          'A preferência é salva no dispositivo e aplicada automaticamente em todas as telas.',
-        ),
-        findsOneWidget,
-      );
-
-      // Toca em 'Escuro'
-      await tester.tap(find.text('Escuro'));
-      await tester.pumpAndSettle();
-
-      expect(themeService.themeMode, equals(ThemeMode.dark));
-      expect(themeService.temaAtualNome, equals('Escuro'));
-
-      // Toca em 'Usar padrão do sistema'
-      await tester.tap(find.text('Usar padrão do sistema'));
-      await tester.pumpAndSettle();
-
-      expect(themeService.themeMode, equals(ThemeMode.system));
-      expect(themeService.temaAtualNome, equals('Sistema'));
-    });
-
-    testWidgets(
-        'ProvaCertaApp: aplica tema globalmente no MaterialApp via ListenableBuilder',
-        (tester) async {
-      final themeService = ThemeService();
-      await themeService.inicializar();
-
-      await tester.pumpWidget(
-        ProvaCertaApp(
-          themeService: themeService,
-          homeOverride: Builder(
-            builder: (context) {
-              final brightness = Theme.of(context).brightness;
-              return Scaffold(
-                body: Center(
-                  child: Text('Brightness: $brightness'),
-                ),
-              );
-            },
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Padrão inicial é Light
-      expect(find.text('Brightness: Brightness.light'), findsOneWidget);
-
-      // Troca para Dark
-      await themeService.definirThemeMode(ThemeMode.dark);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Brightness: Brightness.dark'), findsOneWidget);
-    });
-
-    test('AppTheme: paletas clara e escura possuem contraste e propriedades corretas',
-        () {
-      expect(AppTheme.lightTheme.brightness, equals(Brightness.light));
-      expect(
-        AppTheme.lightTheme.scaffoldBackgroundColor,
-        equals(const Color(0xFFF5F7FB)),
-      );
-
-      expect(AppTheme.darkTheme.brightness, equals(Brightness.dark));
-      expect(
-        AppTheme.darkTheme.scaffoldBackgroundColor,
-        equals(const Color(0xFF0F172A)),
-      );
-      expect(AppTheme.darkTheme.cardColor, equals(const Color(0xFF1E293B)));
     });
   });
 }
