@@ -18,17 +18,9 @@ class VersoesProvaScreen extends StatefulWidget {
 
 class _VersoesProvaScreenState extends State<VersoesProvaScreen> {
   final _pdfService = GeracaoPdfProvaService();
-  final _pageController = PageController();
   bool _processando = false;
   Uint8List? _pdfPreview;
   int? _previewVersion;
-  int _paginaAtual = 0;
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
 
   int get _quantidadeVersoes => widget.prova.numeroVersoes.clamp(1, 4);
 
@@ -193,14 +185,6 @@ class _VersoesProvaScreenState extends State<VersoesProvaScreen> {
           ),
           Expanded(
             child: PageView.builder(
-              controller: _pageController,
-              onPageChanged: (pagina) {
-                setState(() {
-                  _paginaAtual = pagina;
-                  _pdfPreview = null;
-                  _previewVersion = null;
-                });
-              },
               itemCount: _quantidadeVersoes,
               itemBuilder: (context, index) {
                 final numero = index + 1;
@@ -302,48 +286,10 @@ class _VersoesProvaScreenState extends State<VersoesProvaScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _paginaAtual == 0
-                            ? null
-                            : () => _pageController.previousPage(
-                                duration: const Duration(milliseconds: 250),
-                                curve: Curves.easeOut,
-                              ),
-                        icon: const Icon(Icons.chevron_left),
-                        label: const Text('Anterior'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _paginaAtual >= _quantidadeVersoes - 1
-                            ? null
-                            : () => _pageController.nextPage(
-                                duration: const Duration(milliseconds: 250),
-                                curve: Curves.easeOut,
-                              ),
-                        icon: const Icon(Icons.chevron_right),
-                        label: const Text('Próxima'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _processando ? null : _baixarTodas,
-                    icon: const Icon(Icons.download_for_offline_outlined),
-                    label: const Text('Baixar todas as versões'),
-                  ),
-                ),
-              ],
+            child: OutlinedButton.icon(
+              onPressed: _processando ? null : _baixarTodas,
+              icon: const Icon(Icons.download_for_offline_outlined),
+              label: const Text('Baixar todas as versões'),
             ),
           ),
         ],

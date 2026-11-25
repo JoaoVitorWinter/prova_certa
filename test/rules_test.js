@@ -339,10 +339,7 @@ async function runTests() {
         nota: { doubleValue: 9.5 },
         acertos: { integerValue: '9' },
         totalQuestoes: { integerValue: '10' },
-        alternativasMarcadas: { arrayValue: { values: [{ stringValue: 'A' }, { stringValue: 'B' }] } },
-        numeroVersao: { integerValue: '2' },
-        gabaritoCorreto: { arrayValue: { values: [{ stringValue: 'A' }, { stringValue: 'B' }] } },
-        questoesSnapshot: { arrayValue: { values: [{ mapValue: { fields: { id: { stringValue: 'q1' }, enunciado: { stringValue: 'Questão 1' } } } }] } }
+        alternativasMarcadas: { arrayValue: { values: [{ stringValue: 'A' }, { stringValue: 'B' }] } }
       }
     };
     const res = await firestoreRequest('usuarios/prof_ana_1/provas/p1/resultados/a1', 'PATCH', body, tokenAna);
