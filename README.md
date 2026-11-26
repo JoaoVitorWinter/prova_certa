@@ -116,10 +116,10 @@ Os requisitos a seguir descrevem as funções previstas para a aplicação e ind
 | **RF10** | O sistema deve permitir **selecionar questões cadastradas** para compor uma prova. | Implementado |
 | **RF11** | O sistema deve permitir **criar e armazenar provas** vinculadas às turmas, incluindo questões e gabarito. | Implementado |
 | **RF12** | O sistema deve apresentar uma **lista de provas com filtros**, permitir a alteração de status e a exclusão de avaliações. | Implementado |
-| **RF13** | O sistema deve permitir **editar integralmente uma prova existente**, incluindo seus dados e a composição de questões. | Não identificado na versão atual |
+| **RF13** | O sistema deve permitir **editar integralmente uma prova existente**, incluindo seus dados e a composição de questões. | Implementado |
 | **RF14** | O sistema deve permitir **gerar e exibir o QR Code** correspondente à prova e ao gabarito. | Implementado |
 | **RF15** | O sistema deve oferecer a **leitura do QR Code do gabarito** como etapa da correção. | Implementado |
-| **RF16** | O sistema deve permitir **capturar folhas de resposta e identificar possíveis marcações** para conferência do professor. | Experimental |
+| **RF16** | O sistema deve permitir **capturar folhas de resposta e identificar possíveis marcações** para conferência do professor. | Implementado |
 | **RF17** | O sistema deve permitir **associar a folha ao aluno**, conferir as respostas e finalizar a correção com alunos ausentes ou pendentes. | Implementado com conferência manual |
 | **RF18** | O sistema deve **calcular notas e acertos**, gerar um resumo da correção e salvar os resultados no Firestore. | Implementado |
 | **RF19** | O sistema deve apresentar **resultados por prova, questão e aluno**, incluindo médias, distribuição de notas e percentuais de acerto. | Implementado |
@@ -165,16 +165,16 @@ Os requisitos a seguir descrevem as funções previstas para a aplicação e ind
 | **Nova prova** | Criar uma prova, selecionar questões e salvar seus dados. | Integrada ao Firestore |
 | **Banco de questões** | Consultar, cadastrar, editar e excluir questões. | Integrada ao Firestore |
 | **Seleção de questões** | Escolher questões cadastradas para uma avaliação. | Integrada ao Firestore |
-| **Correção de prova** | Iniciar e acompanhar a correção de uma avaliação. | Funcional, com etapa experimental de leitura |
+| **Correção de prova** | Iniciar e acompanhar a correção de uma avaliação. | Funcional |
 | **Visualização de versões / PDF** | Consultar versões e visualizar ou exportar cadernos e folhas de resposta. | Implementado |
 | **QR Code da prova** | Gerar e exibir o código do gabarito da avaliação. | Implementado |
 | **Leitura do QR Code** | Capturar e validar o código do gabarito. | Implementado |
-| **Leitura de folhas** | Fotografar a folha, identificar possíveis respostas e permitir conferência. | Experimental |
+| **Leitura de folhas** | Fotografar a folha, identificar possíveis respostas e permitir conferência. | Implementadp |
 | **Resultados** | Exibir resumos e detalhes por questão e aluno. | Integrada ao Firestore |
 | **Exportação / compartilhamento** | Gerar e compartilhar arquivos CSV. | Funcional |
 | **Perfil** | Consultar informações do docente. | Integrada ao Firestore |
 | **Editar perfil** | Atualizar dados do professor. | Integrada ao Firestore |
-| **Configurações / notificações / sobre** | Apresentar opções e informações complementares. | Algumas funções demonstrativas |
+| **Configurações / notificações / sobre** | Apresentar opções e informações complementares. | Implementado |
 
 ### 3.1 Fluxo Principal de Utilização
 
