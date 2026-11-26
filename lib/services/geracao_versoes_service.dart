@@ -1,4 +1,3 @@
-
 import 'dart:math';
 
 import '../models/alternativa.dart';
@@ -8,8 +7,7 @@ import '../models/versao_prova.dart';
 class GeracaoVersoesService {
   final Random _random;
 
-  GeracaoVersoesService({Random? random})
-      : _random = random ?? Random();
+  GeracaoVersoesService({Random? random}) : _random = random ?? Random();
 
   List<VersaoProva> gerarVersoes({
     required List<Questao> questoes,
@@ -22,16 +20,13 @@ class GeracaoVersoesService {
     }
 
     if (numeroVersoes < 1 || numeroVersoes > 4) {
-      throw ArgumentError(
-        'O número de versões deve estar entre 1 e 4.',
-      );
+      throw ArgumentError('O número de versões deve estar entre 1 e 4.');
     }
 
     final List<VersaoProva> versoes = [];
 
     for (int numero = 1; numero <= numeroVersoes; numero++) {
-      final List<Questao> questoesDaVersao =
-          List<Questao>.from(questoes);
+      final List<Questao> questoesDaVersao = List<Questao>.from(questoes);
 
       if (embaralharQuestoes) {
         questoesDaVersao.shuffle(_random);
@@ -45,13 +40,13 @@ class GeracaoVersoesService {
           continue;
         }
 
-        final List<Alternativa> alternativas =
-            List<Alternativa>.from(questao.alternativas);
+        final List<Alternativa> alternativas = List<Alternativa>.from(
+          questao.alternativas,
+        );
 
         final int indiceCorreto = alternativas.indexWhere(
           (alternativa) =>
-              alternativa.letra.toUpperCase() ==
-              questao.correta.toUpperCase(),
+              alternativa.letra.toUpperCase() == questao.correta.toUpperCase(),
         );
 
         if (indiceCorreto == -1) {
@@ -68,8 +63,7 @@ class GeracaoVersoesService {
 
         for (int i = 0; i < alternativas.length; i++) {
           final Alternativa alternativa = alternativas[i];
-          final String novaLetra =
-              String.fromCharCode(65 + i);
+          final String novaLetra = String.fromCharCode(65 + i);
 
           if (alternativa.letra.toUpperCase() ==
               questao.correta.toUpperCase()) {
@@ -80,6 +74,8 @@ class GeracaoVersoesService {
             Alternativa(
               letra: novaLetra,
               texto: alternativa.texto,
+              letraOriginal:
+                  alternativa.letraOriginal ?? alternativa.letra.toUpperCase(),
             ),
           );
         }

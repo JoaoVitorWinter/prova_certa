@@ -482,7 +482,7 @@ class _VisaoGeralTab extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(18),
@@ -738,6 +738,17 @@ class _QuestaoCard extends StatelessWidget {
               ),
             ],
           ),
+          if (questao.enunciado.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              questao.enunciado,
+              style: const TextStyle(
+                color: Color(0xFF475569),
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           ...questao.alternativas.map(
             (alternativa) => Padding(
@@ -790,6 +801,16 @@ class _AlternativaBar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (alternativa.texto.isNotEmpty)
+                Text(
+                  alternativa.texto,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF475569),
+                    fontSize: 11,
+                  ),
+                ),
               LinearProgressIndicator(
                 value: alternativa.percentual / 100,
                 minHeight: 6,
@@ -812,6 +833,39 @@ class _AlternativaBar extends StatelessWidget {
       ],
     );
   }
+}
+
+String _letraOriginalAluno(
+  ResultadoAluno resultado,
+  int indice,
+  String letraVersao,
+) {
+  final snapshot = resultado.questoesSnapshot ?? const [];
+  if (indice >= snapshot.length) return letraVersao;
+  final rawAlternativas =
+      snapshot[indice]['alternativas'] as List<dynamic>? ?? const [];
+  final letra = letraVersao.trim().toUpperCase();
+  for (final raw in rawAlternativas) {
+    if (raw is Map) {
+      final letraAtual = raw['letra']?.toString().trim().toUpperCase();
+      if (letraAtual == letra) {
+        return raw['letraOriginal']?.toString().trim().toUpperCase() ?? letra;
+      }
+    }
+  }
+  return letra;
+}
+
+List<String> _gabaritoOriginal(
+  ResultadoAluno resultado,
+  List<String> fallback,
+) {
+  final gabarito = resultado.gabaritoCorreto ?? fallback;
+  final original = <String>[];
+  for (var i = 0; i < gabarito.length; i++) {
+    original.add(_letraOriginalAluno(resultado, i, gabarito[i]));
+  }
+  return original;
 }
 
 class _AlunosTab extends StatelessWidget {
@@ -861,9 +915,9 @@ class _AlunosTab extends StatelessWidget {
             itemBuilder: (context, index) {
               return _ResultadoAlunoItem(
                 resultado: resultado.porAluno[index],
-                gabarito: [
+                gabarito: _gabaritoOriginal(resultado.porAluno[index], [
                   for (final q in resultado.porQuestao) q.alternativaCorreta,
-                ],
+                ]),
                 index: index,
               );
             },
@@ -975,6 +1029,7 @@ class _ResultadoAlunoItem extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     'RA: ${resultado.aluno.ra} · '
+                    '${resultado.numeroVersao != null ? 'Versão ${resultado.numeroVersao} · ' : ''}'
                     '${resultado.acertos}/${gabarito.length} acertos',
                     style: const TextStyle(
                       fontSize: 13,
@@ -1036,7 +1091,11 @@ class _DetalheAlunoSheet extends StatelessWidget {
               runSpacing: 8,
               children: List.generate(gabarito.length, (i) {
                 final marcada = i < resultado.alternativasMarcadas.length
-                    ? resultado.alternativasMarcadas[i]
+                    ? _letraOriginalAluno(
+                        resultado,
+                        i,
+                        resultado.alternativasMarcadas[i],
+                      )
                     : '?';
                 final correta = marcada == gabarito[i];
 

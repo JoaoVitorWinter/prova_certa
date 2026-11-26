@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -85,8 +85,7 @@ class ResultadoService {
     var encerrar = false;
     if (statusAtual == ProvaStatus.ativa) {
       final alunosIds = await _listarAlunosIds(uid, prova.turma.id);
-      encerrar =
-          alunosIds.isNotEmpty && alunosIds.every(porAluno.containsKey);
+      encerrar = alunosIds.isNotEmpty && alunosIds.every(porAluno.containsKey);
     }
 
     final dados = prova
@@ -131,6 +130,14 @@ class ResultadoService {
   ) async {
     final snap = await _resultadosRef(uid, provaId).get();
     return snap.docs.map((doc) => ResultadoAluno.fromFirestore(doc)).toList();
+  }
+
+  Future<List<ResultadoAluno>> listarResultadosAlunos({
+    required String provaId,
+    String? userId,
+  }) async {
+    final uid = _resolveUserId(userId);
+    return _listarResultadosAlunos(uid, provaId);
   }
 
   /// Escuta as provas jÃ¡ corrigidas do professor, com os resultados por aluno,

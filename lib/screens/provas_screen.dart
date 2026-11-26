@@ -169,6 +169,21 @@ class _ProvasScreenState extends State<ProvasScreen> {
     }
   }
 
+  Future<void> _editar(Prova prova) async {
+    final salvou = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NovaProvaScreen(
+          provaService: _provaService,
+          turmaService: _turmaService,
+          prova: prova,
+        ),
+      ),
+    );
+    if (!mounted || salvou != true) return;
+    _mostrarMensagem('Prova atualizada.');
+  }
+
   Future<void> _abrirAcoes(Prova prova) async {
     final acoes = <({String label, IconData icon, ProvaStatus status})>[
       if (prova.status == ProvaStatus.rascunho)
@@ -216,6 +231,15 @@ class _ProvasScreenState extends State<ProvasScreen> {
             ),
             ListTile(
               leading: const Icon(
+                Icons.edit_outlined,
+                color: Color(0xFF5146EE),
+              ),
+              title: const Text('Editar prova'),
+              subtitle: const Text('Dados, turma, questões e versões'),
+              onTap: () => Navigator.pop(context, 'editar'),
+            ),
+            ListTile(
+              leading: const Icon(
                 Icons.view_carousel_outlined,
                 color: Color(0xFF5146EE),
               ),
@@ -248,7 +272,9 @@ class _ProvasScreenState extends State<ProvasScreen> {
 
     if (!mounted || escolha == null) return;
 
-    if (escolha == 'versoes') {
+    if (escolha == 'editar') {
+      await _editar(prova);
+    } else if (escolha == 'versoes') {
       await Navigator.push(
         context,
         MaterialPageRoute(
