@@ -94,27 +94,6 @@ A finalidade é reduzir a dependência de registros manuais, melhorar a organiza
 - **Exportação:** geração de arquivos CSV de notas e análise por questão, com possibilidade de compartilhamento pelo dispositivo.
 - **Segurança e navegação:** associação das informações ao UID autenticado, regras de acesso do Firestore e controle de acesso a telas por sessão.
 
-#### 1.2.2. Funcionalidades parciais ou experimentais
-
-| Módulo | Estado atual | Limitação |
-| --- | --- | --- |
-| Gestão de provas | **Parcialmente implementado** | Permite criar, listar, alterar o status e excluir provas; a edição completa de uma prova já cadastrada não foi identificada. |
-| Leitura das folhas de resposta | **Experimental** | Analisa fotografias e tenta identificar alternativas marcadas por processamento de imagem, exigindo alinhamento adequado e conferência manual. |
-| Identificação dos alunos nas folhas | **Manual** | O professor seleciona o aluno correspondente à folha; não há reconhecimento automático do nome ou RA escrito. |
-| Análise conjunta de versões embaralhadas | **Parcial** | A geração das versões está implementada; a normalização das questões entre versões para estatísticas conjuntas não foi identificada. |
-| Algumas configurações | **Demonstrativo/parcial** | As telas podem estar disponíveis sem persistência ou aplicação integral das preferências. |
-
-**Importante:** a detecção de alternativas nas folhas é experimental e depende da revisão do professor. A existência do leitor de imagem não significa que o aplicativo já realize correção totalmente automática e validada em diferentes condições de captura.
-
-#### 1.2.3. Fora do escopo implementado nesta versão
-
-- reconhecimento robusto das marcações em diferentes modelos de folhas e condições de captura;
-- identificação automática do aluno por nome ou RA manuscrito na folha;
-- edição completa de provas já cadastradas, incluindo alterações de suas questões e configurações;
-- normalização das estatísticas por questão entre versões embaralhadas;
-- funcionamento totalmente offline e sincronização posterior;
-- disponibilização do aplicativo como produto final em produção.
-
 ## 2. Requisitos
 
 📌 **N1** — atualizados para refletir a integração com o Firebase e as funcionalidades atuais.
@@ -644,18 +623,7 @@ Para atender ao modelo de documentação da disciplina, recomenda-se organizar a
 
 ## 7. Como Executar o Projeto
 
-📌 **N1**
-
-### 7.1 Clonar o Repositório
-
-```bash
-git clone <URL-DO-REPOSITORIO>
-cd prova_certa
-```
-
-> Substitua `<URL-DO-REPOSITORIO>` pelo endereço real do GitHub e ajuste o nome da pasta caso seja diferente.
-
-### 7.2 Pré-requisitos
+### 7.1 Pré-requisitos
 
 - Flutter SDK e Dart configurados conforme o `pubspec.yaml`;
 - Android Studio/Android SDK ou ambiente compatível para execução;
@@ -666,7 +634,7 @@ cd prova_certa
 
 Para as funcionalidades de câmera e leitura de QR Code, recomenda-se validar o funcionamento em um dispositivo compatível, com as permissões necessárias.
 
-### 7.3 Execução pelo Terminal
+### 7.2 Execução pelo Terminal
 
 Na pasta raiz do projeto:
 
@@ -688,7 +656,7 @@ flutter run -d <id-do-dispositivo>
 
 ```
 
-### 7.4 Análise e Testes
+### 7.3 Análise e Testes
 
 ```bash
 
@@ -700,7 +668,7 @@ flutter test
 
 Esses comandos verificam a análise estática e executam os testes Flutter existentes. A verificação integral da segurança e da persistência exige, adicionalmente, validar as regras e os fluxos de leitura/escrita no Firebase.
 
-### 7.5 Geração do APK
+### 7.4 Geração do APK
 
 Para criar um APK Android de release:
 
@@ -725,8 +693,6 @@ O APK precisa ser instalado em um dispositivo Android compatível. Para autentic
 📌 **N2**
 
 Esta seção registra **as tarefas efetivamente realizadas na N2**, organizadas por integrante, com prazo e situação, conforme o histórico de commits e Pull Requests do repositório.
-
-<!-- Repita o bloco para cada integrante, preenchendo com as tarefas reais da N2. -->
 
 ### *Gabriel Fellipe Marquardt*
 
@@ -779,8 +745,6 @@ Esta seção registra **as tarefas efetivamente realizadas na N2**, organizadas 
 | Revisar o fluxo de leitura do gabarito por QR Code e melhorar a leitura da folha, incluindo validações de enquadramento e marcações. | 30/10 | Concluído |
 | Persistir no banco os resultados obtidos na correção, relacionando prova, aluno, respostas, acertos e nota. | 30/10 | Concluído |
 
----
-
 ## Identificação e Considerações Finais
 
 - **Nome:** Prova Certa
@@ -791,10 +755,6 @@ Esta seção registra **as tarefas efetivamente realizadas na N2**, organizadas 
 - **Plataforma principal:** Android, com configuração Firebase também para Web
 - **Estado atual:** em desenvolvimento, com geração de versões e PDFs, persistência de provas, questões e resultados e leitura experimental das folhas
 - **Atualização da documentação:** 23 de novembro de 2026
-
-O **Prova Certa** já possui uma base funcional para gerenciar usuários, turmas, alunos, questões, provas e resultados com persistência em nuvem. O foco das próximas etapas é aprimorar o reconhecimento das folhas de resposta, concluir a edição de provas, normalizar as estatísticas entre versões e ampliar os testes para consolidar o fluxo de avaliações.
-
----
 
 *Prova Certa: organização, correção e acompanhamento de avaliações em um só lugar.*
 
