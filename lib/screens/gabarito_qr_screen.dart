@@ -4,12 +4,34 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/prova.dart';
-import 'folhas_screen.dart';
+
+class ResultadoLeituraGabarito {
+  final int numeroVersao;
+  final List<String> gabarito;
+  final List<Map<String, dynamic>> questoes;
+
+  final bool versaoEscolhidaManualmente;
+
+  const ResultadoLeituraGabarito({
+    required this.numeroVersao,
+    required this.gabarito,
+    required this.questoes,
+    this.versaoEscolhidaManualmente = false,
+  });
+}
 
 class GabaritoQrScreen extends StatefulWidget {
   final Prova prova;
+  final bool retornarResultado;
 
-  const GabaritoQrScreen({super.key, required this.prova});
+  final String? nomeAluno;
+
+  const GabaritoQrScreen({
+    super.key,
+    required this.prova,
+    this.retornarResultado = false,
+    this.nomeAluno,
+  });
 
   @override
   State<GabaritoQrScreen> createState() => _GabaritoQrScreenState();
@@ -22,7 +44,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
   bool _processando = false;
   String? _codigoLido;
   String? _erroLeitura;
-
+  int _numeroVersao = 1;
   // Só é preenchido depois de validar o QR da prova selecionada.
   List<String> _gabarito = [];
 
@@ -51,29 +73,72 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
         return null;
       }
 
-      final rawGabarito = decoded['gabarito'];
-      if (rawGabarito is! List) {
-        return null;
+      final versaoQr =
+          (decoded['versao'] as num?)?.toInt() ??
+          (decoded['numeroVersao'] as num?)?.toInt();
+      if (versaoQr != null) {
+        if (versaoQr < 1 || versaoQr > widget.prova.numeroVersoes) {
+          _erroLeitura = 'Esta versão não pertence a esta prova.';
+          return null;
+        }
+        _numeroVersao = versaoQr;
       }
 
-      final gabarito = rawGabarito
-          .map((item) => item.toString().trim().toUpperCase())
-          .toList();
-
-      if (gabarito.length != widget.prova.quantidadeQuestoes ||
-          gabarito.isEmpty ||
-          gabarito.any((item) => !RegExp(r'^[A-E]$').hasMatch(item))) {
-        _erroLeitura =
-            'O gabarito do QR Code não corresponde à quantidade de questões desta prova.';
-        return null;
-      }
-
-      return gabarito;
+      return _leituraDaVersao(_numeroVersao)?.gabarito;
     } on FormatException {
       return null;
     } catch (_) {
       return null;
     }
+  }
+
+  ResultadoLeituraGabarito? _leituraDaVersao(
+    int numeroVersao, {
+    bool manual = false,
+  }) {
+    final prova = widget.prova;
+    final versao = (prova.versoes ?? const [])
+        .where((item) => item.numero == numeroVersao)
+        .firstOrNull;
+
+    List<String> gabarito;
+    List<Map<String, dynamic>> questoes;
+    if (versao != null) {
+      gabarito = versao.gabarito
+          .map((item) => item.trim().toUpperCase())
+          .toList();
+      questoes = [
+        for (final questao in versao.questoes)
+          Map<String, dynamic>.from(questao.toMap()),
+      ];
+    } else if (numeroVersao == 1 && prova.gabaritoOficial != null) {
+      gabarito = prova.gabaritoOficial!
+          .map((item) => item.trim().toUpperCase())
+          .toList();
+      questoes = [
+        for (final questao in prova.extrairQuestoesSnapshot())
+          Map<String, dynamic>.from(questao),
+      ];
+    } else {
+      _erroLeitura = 'Esta versão não está disponível nos dados desta prova.';
+      return null;
+    }
+
+    if (gabarito.length != prova.quantidadeQuestoes ||
+        gabarito.isEmpty ||
+        gabarito.any((item) => !RegExp(r'^[A-E]$').hasMatch(item))) {
+      _erroLeitura =
+          'O gabarito da versão $numeroVersao não corresponde à quantidade '
+          'de questões desta prova.';
+      return null;
+    }
+
+    return ResultadoLeituraGabarito(
+      numeroVersao: numeroVersao,
+      gabarito: gabarito,
+      questoes: questoes,
+      versaoEscolhidaManualmente: manual,
+    );
   }
 
   void _processarQr(BarcodeCapture capture) {
@@ -98,7 +163,8 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
         final gabarito = _lerPayloadQr(valor);
 
         if (gabarito == null) {
-          final mensagem = _erroLeitura ??
+          final mensagem =
+              _erroLeitura ??
               'QR Code inválido. Leia o QR gerado pelo Prova Certa para esta prova.';
 
           setState(() {
@@ -126,6 +192,12 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
           _processando = false;
           _erroLeitura = null;
         });
+        if (widget.retornarResultado) {
+          Future<void>.delayed(const Duration(milliseconds: 150), () {
+            if (!mounted) return;
+            Navigator.pop(context, _leituraDaVersao(_numeroVersao));
+          });
+        }
       });
 
       break;
@@ -139,28 +211,48 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
       _codigoLido = null;
       _erroLeitura = null;
       _gabarito = [];
+      _numeroVersao = 1;
     });
     _scannerController.start();
   }
 
-  void _avancar() {
-    if (!_qrLido ||
-        _gabarito.length != widget.prova.quantidadeQuestoes) {
+  Future<void> _escolherVersaoManualmente() async {
+    final versao = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Escolher versão da folha'),
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(
+              'Confira a versão impressa no cabeçalho da folha do aluno.',
+              style: TextStyle(color: Color(0xFF68758A), fontSize: 12),
+            ),
+          ),
+          for (var numero = 1; numero <= widget.prova.numeroVersoes; numero++)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, numero),
+              child: Text('Versão $numero'),
+            ),
+        ],
+      ),
+    );
+    if (!mounted || versao == null) return;
+
+    final leitura = _leituraDaVersao(versao, manual: true);
+    if (leitura == null) {
+      setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Leia primeiro um QR Code válido desta prova.'),
+        SnackBar(
+          content: Text(_erroLeitura ?? 'Versão indisponível.'),
+          backgroundColor: const Color(0xFFD32F2F),
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            FolhasScreen(prova: widget.prova, gabarito: List<String>.from(_gabarito)),
-      ),
-    );
+    Navigator.pop(context, leitura);
   }
 
   @override
@@ -180,7 +272,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
                     const SizedBox(height: 50),
 
                     const Text(
-                      'Aponte a câmera para o QR code do gabarito da prova:',
+                      'Aponte a câmera para o QR code da versão da folha:',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Color(0xFF68758A),
@@ -190,6 +282,19 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
                     ),
 
                     const SizedBox(height: 22),
+
+                    if (widget.nomeAluno != null) ...[
+                      Text(
+                        'Folha de ${widget.nomeAluno}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF5146EE),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
 
                     Text(
                       '"${widget.prova.nome}"',
@@ -238,7 +343,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
                     if (_qrLido) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Gabarito lido: ${_gabarito.join(' · ')} '
+                        'Versão $_numeroVersao validada '
                         '(${_gabarito.length} questões)',
                         textAlign: TextAlign.center,
                         maxLines: 2,
@@ -264,8 +369,8 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
                     const SizedBox(height: 28),
 
                     const Text(
-                      'Leia o QR Code gerado ao criar esta prova. O código deve '
-                      'corresponder à prova selecionada e à quantidade de questões.',
+                      'Leia o QR Code da folha do aluno. Ele identifica a prova '
+                      'e a versão; o gabarito vem da versão armazenada.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Color(0xFF929CAC),
@@ -309,7 +414,7 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
           ),
           const SizedBox(width: 14),
           const Text(
-            'Passo 1: Gabarito',
+            'Versão da folha',
             style: TextStyle(
               color: Color(0xFF101827),
               fontSize: 15,
@@ -394,26 +499,6 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            height: 41,
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _qrLido ? _avancar : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5647E8),
-                disabledBackgroundColor: const Color(0xFFD7D9E2),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Continuar para leitura das folhas',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-              ),
-            ),
-          ),
           if (_qrLido) ...[
             const SizedBox(height: 4),
             TextButton(
@@ -421,7 +506,171 @@ class _GabaritoQrScreenState extends State<GabaritoQrScreen> {
               child: const Text('Ler outro QR Code'),
             ),
           ],
+          TextButton.icon(
+            onPressed: _escolherVersaoManualmente,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: const Text('Não conseguiu ler? Escolher a versão manualmente'),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _GabaritoManual {
+  final int numeroVersao;
+  final List<String> gabarito;
+  final List<Map<String, dynamic>> questoes;
+
+  const _GabaritoManual({
+    required this.numeroVersao,
+    required this.gabarito,
+    required this.questoes,
+  });
+}
+
+class _GabaritoManualScreen extends StatefulWidget {
+  final Prova prova;
+
+  const _GabaritoManualScreen({required this.prova});
+
+  @override
+  State<_GabaritoManualScreen> createState() => _GabaritoManualScreenState();
+}
+
+class _GabaritoManualScreenState extends State<_GabaritoManualScreen> {
+  late int _versao;
+  late List<String?> _respostas;
+
+  @override
+  void initState() {
+    super.initState();
+    _versao = 1;
+    _respostas = List<String?>.filled(widget.prova.quantidadeQuestoes, null);
+  }
+
+  List<String> _gabaritoDaVersao(int versao) {
+    for (final item in widget.prova.versoes ?? const []) {
+      if (item.numero == versao && item.gabarito.isNotEmpty) {
+        return List<String>.from(item.gabarito);
+      }
+    }
+    final oficial = widget.prova.gabaritoOficial;
+    if (oficial != null && oficial.length == widget.prova.quantidadeQuestoes) {
+      return List<String>.from(oficial);
+    }
+    return List<String>.filled(widget.prova.quantidadeQuestoes, '');
+  }
+
+  void _carregarVersao(int versao) {
+    setState(() {
+      _versao = versao;
+      _respostas = List<String?>.filled(widget.prova.quantidadeQuestoes, null);
+    });
+  }
+
+  void _confirmar() {
+    if (_respostas.any((resposta) => resposta == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe as respostas marcadas pelo aluno.'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pop(
+      context,
+      _GabaritoManual(
+        numeroVersao: _versao,
+        gabarito: _gabaritoDaVersao(_versao),
+        questoes: _questoesDaVersao(_versao),
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _questoesDaVersao(int versao) {
+    for (final item in widget.prova.versoes ?? const []) {
+      if (item.numero == versao) {
+        final snapshot = <Map<String, dynamic>>[];
+        for (final questao in item.questoes) {
+          snapshot.add(Map<String, dynamic>.from(questao.toMap()));
+        }
+        return snapshot;
+      }
+    }
+    final fallback = <Map<String, dynamic>>[];
+    for (final questao in widget.prova.extrairQuestoesSnapshot()) {
+      fallback.add(Map<String, dynamic>.from(questao));
+    }
+    return fallback;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Digitar versão e respostas')),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: DropdownButtonFormField<int>(
+                initialValue: _versao,
+                decoration: const InputDecoration(
+                  labelText: 'Versão da prova',
+                  border: OutlineInputBorder(),
+                ),
+                items: List.generate(
+                  widget.prova.numeroVersoes,
+                  (index) => DropdownMenuItem(
+                    value: index + 1,
+                    child: Text('Versão ${index + 1}'),
+                  ),
+                ),
+                onChanged: (valor) {
+                  if (valor != null) _carregarVersao(valor);
+                },
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _respostas.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, index) => ListTile(
+                  title: Text('Questão ${index + 1}'),
+                  trailing: DropdownButton<String?>(
+                    value: _respostas[index],
+                    hint: const Text('Escolher'),
+                    items: ['A', 'B', 'C', 'D', 'E']
+                        .map(
+                          (letra) => DropdownMenuItem(
+                            value: letra,
+                            child: Text(letra),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (valor) {
+                      setState(() => _respostas[index] = valor);
+                    },
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _confirmar,
+                  child: const Text('Confirmar respostas'),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -126,7 +126,7 @@ service cloud.firestore {
             && request.resource.data.keys().hasOnly([
               'id', 'alunoId', 'alunoNome', 'alunoRa', 'nota', 'acertos',
               'totalQuestoes', 'alternativasMarcadas', 'provaId', 'turmaId',
-              'corrigidoEm', 'atualizadoEm'
+              'numeroVersao', 'gabaritoCorreto', 'questoesSnapshot', 'corrigidoEm', 'atualizadoEm'
             ])
             && request.resource.data.alunoId is string && request.resource.data.alunoId.size() > 0
             && request.resource.data.alunoNome is string && request.resource.data.alunoNome.size() > 0
@@ -134,7 +134,10 @@ service cloud.firestore {
             && request.resource.data.nota is number
             && request.resource.data.acertos is number
             && request.resource.data.totalQuestoes is number
-            && request.resource.data.alternativasMarcadas is list;
+            && request.resource.data.alternativasMarcadas is list
+            && (!('numeroVersao' in request.resource.data) || request.resource.data.numeroVersao is number)
+            && (!('gabaritoCorreto' in request.resource.data) || request.resource.data.gabaritoCorreto is list)
+            && (!('questoesSnapshot' in request.resource.data) || request.resource.data.questoesSnapshot is list);
         }
       }
     }

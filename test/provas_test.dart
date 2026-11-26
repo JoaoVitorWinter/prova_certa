@@ -10,6 +10,7 @@ import 'package:prova_certa/models/turma.dart';
 import 'package:prova_certa/models/versao_prova.dart';
 import 'package:prova_certa/screens/nova_prova_screen.dart';
 import 'package:prova_certa/screens/provas_screen.dart';
+import 'package:prova_certa/services/geracao_versoes_service.dart';
 import 'package:prova_certa/services/prova_service.dart';
 import 'package:prova_certa/services/questao_service.dart';
 import 'package:prova_certa/services/turma_service.dart';
@@ -64,6 +65,20 @@ class FakeProvaService extends ProvaService {
   Future<void> excluirProva(String provaId, {String? userId}) async {
     _db.remove(provaId);
     _notificar();
+  }
+
+  bool? ultimoDescarteResultados;
+
+  @override
+  Future<Prova> atualizarProva(
+    Prova prova, {
+    bool descartarResultados = false,
+    String? userId,
+  }) async {
+    ultimoDescarteResultados = descartarResultados;
+    _db[prova.id] = prova;
+    _notificar();
+    return prova;
   }
 }
 
@@ -635,6 +650,166 @@ void main() {
       expect(service.todas.single.status, ProvaStatus.rascunho);
 
       await concluirTransicao(tester);
+    });
+  });
+
+  group('Edição de prova', () {
+    Prova provaCompleta({int corrigidas = 0}) {
+      final questoes = questoesTeste.toList();
+      return Prova(
+        id: 'p1',
+        nome: 'Prova Original',
+        turma: turmaA,
+        dataAplicacao: DateTime(2026, 10, 1),
+        quantidadeQuestoes: 5,
+        questoes: questoes,
+        status: ProvaStatus.ativa,
+        embaralharQuestoes: true,
+        numeroVersoes: 2,
+        versoes: GeracaoVersoesService().gerarVersoes(
+          questoes: questoes,
+          embaralharQuestoes: true,
+          embaralharAlternativas: false,
+          numeroVersoes: 2,
+        ),
+        gabaritoOficial: const ['A', 'C', 'B', 'B', 'A'],
+        resumoResultado:
+            corrigidas > 0 ? {'totalFolhasCorrigidas': corrigidas} : null,
+        criadoEm: DateTime(2026, 9, 1),
+      );
+    }
+
+    Future<void> abrirEdicao(
+      WidgetTester tester,
+      FakeProvaService service,
+      FakeQuestoesProvaService questaoService,
+    ) async {
+      tester.view.physicalSize = const Size(800, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NovaProvaScreen(
+            provaService: service,
+            turmaService: FakeTurmasProvaService([turmaA]),
+            questaoService: questaoService,
+            prova: service.todas.single,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('abre a edição pelo menu da prova', (tester) async {
+      final service = FakeProvaService(iniciais: [provaCompleta()]);
+      await abrirProvas(tester, service);
+
+      await tester.tap(find.text('Prova Original'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Editar prova'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Editar Prova'), findsOneWidget);
+      expect(find.text('Prova Original'), findsOneWidget);
+      expect(continuarHabilitado(tester), isTrue);
+    });
+
+    testWidgets('altera só os dados e mantém questões, versões e correções',
+        (tester) async {
+      final original = provaCompleta(corrigidas: 3);
+      final service = FakeProvaService(iniciais: [original]);
+      await abrirEdicao(
+        tester,
+        service,
+        FakeQuestoesProvaService([
+          questao('q1', 'Enunciado da questão um', 'E'),
+          ...questoesTeste.skip(1),
+        ]),
+      );
+
+      await tester.enterText(find.byType(TextField).first, 'Prova Revisada');
+      await tester.tap(find.text('Continuar'));
+      await tester.pumpAndSettle();
+      expect(find.text('5 de 5 questões selecionadas'), findsOneWidget);
+      await tester.tap(find.text('Continuar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Salvar como rascunho'), findsNothing);
+      await tester.tap(find.text('Salvar alterações'));
+      await tester.pumpAndSettle();
+
+      final salva = service.todas.single;
+      expect(salva.id, 'p1');
+      expect(salva.nome, 'Prova Revisada');
+      expect(salva.status, ProvaStatus.ativa);
+      expect(salva.extrairQuestoesIds(), ['q1', 'q2', 'q3', 'q4', 'q5']);
+      expect(salva.gabaritoOficial, original.gabaritoOficial);
+      expect(salva.versoes, same(original.versoes));
+      expect(salva.resumoResultado, original.resumoResultado);
+      expect(salva.criadoEm, original.criadoEm);
+      expect(service.ultimoDescarteResultados, isFalse);
+      expect(find.text('Editar Prova'), findsNothing);
+    });
+
+    testWidgets('trocar questões de prova corrigida pede confirmação',
+        (tester) async {
+      final service = FakeProvaService(iniciais: [provaCompleta(corrigidas: 3)]);
+      await abrirEdicao(
+        tester,
+        service,
+        FakeQuestoesProvaService([
+          ...questoesTeste,
+          questao('q6', 'Enunciado da questão seis', 'D'),
+        ]),
+      );
+
+      await tester.tap(find.text('Continuar'));
+      await tester.pumpAndSettle();
+      await tocarQuestao(tester, 'Enunciado da questão cinco');
+      await tocarQuestao(tester, 'Enunciado da questão seis');
+      await tester.tap(find.text('Continuar'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Salvar alterações'));
+      await tester.pumpAndSettle();
+      expect(find.text('Descartar correções?'), findsOneWidget);
+
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(service.ultimoDescarteResultados, isNull);
+      expect(service.todas.single.extrairQuestoesIds().last, 'q5');
+
+      await tester.tap(find.text('Salvar alterações'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Descartar e salvar'));
+      await tester.pumpAndSettle();
+
+      final salva = service.todas.single;
+      expect(service.ultimoDescarteResultados, isTrue);
+      expect(salva.extrairQuestoesIds(), ['q1', 'q2', 'q3', 'q4', 'q6']);
+      expect(salva.gabaritoOficial, ['A', 'C', 'B', 'B', 'D']);
+      expect(salva.resumoResultado, isNull);
+      for (final versao in salva.versoes!) {
+        expect(versao.questoes.map((q) => q.id), containsAll(['q6']));
+      }
+    });
+
+    testWidgets('mantém questões da prova que saíram do banco',
+        (tester) async {
+      final service = FakeProvaService(iniciais: [provaCompleta()]);
+      await abrirEdicao(
+        tester,
+        service,
+        FakeQuestoesProvaService(
+          questoesTeste.where((q) => q.id != 'q3').toList(),
+        ),
+      );
+
+      await tester.tap(find.text('Continuar'));
+      await tester.pumpAndSettle();
+      expect(find.text('5 de 5 questões selecionadas'), findsOneWidget);
+      expect(find.text('Enunciado da questão três'), findsOneWidget);
     });
   });
 }

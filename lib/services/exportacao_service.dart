@@ -1,7 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:csv/csv.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../models/resultado.dart';
 
@@ -19,6 +20,8 @@ class ExportacaoService {
       [
         'Aluno',
         'RA',
+        'Versão',
+        'Gabarito da versão',
         'Nota',
         'Acertos',
         'Total de questões',
@@ -28,16 +31,18 @@ class ExportacaoService {
         [
           r.aluno.nome,
           r.aluno.ra,
+          r.numeroVersao ?? '',
+          _gabaritoOriginal(r).join(''),
           _decimal(r.nota),
           r.acertos,
           totalQuestoes,
           for (var i = 0; i < totalQuestoes; i++)
-            i < r.alternativasMarcadas.length ? r.alternativasMarcadas[i] : '',
+            i < r.alternativasMarcadas.length ? _respostaOriginal(r, i) : '',
         ],
       [],
-      ['Média da turma', '', _decimal(resultado.media)],
-      ['Menor nota', '', _decimal(resultado.minimo)],
-      ['Maior nota', '', _decimal(resultado.maximo)],
+      ['Média da turma', '', '', '', _decimal(resultado.media)],
+      ['Menor nota', '', '', '', _decimal(resultado.minimo)],
+      ['Maior nota', '', '', '', _decimal(resultado.maximo)],
     ];
 
     return _csv.encode(linhas);
@@ -53,13 +58,17 @@ class ExportacaoService {
     final linhas = <List<dynamic>>[
       [
         'Questão',
+        'Enunciado',
         'Gabarito',
         '% de acerto',
-        for (final l in letras) 'Marcaram $l',
+        for (final l in letras)
+          'Alternativa $l'
+              '${_textoAlternativa(resultado, l).isEmpty ? '' : ' - ${_textoAlternativa(resultado, l)}'}',
       ],
       for (final q in resultado.porQuestao)
         [
           q.numero,
+          q.enunciado,
           q.alternativaCorreta,
           _decimal(q.percentualAcerto),
           for (final l in letras)
@@ -88,28 +97,70 @@ class ExportacaoService {
     return '${prefixo}_$nome.csv';
   }
 
-  /// Abre a tela de compartilhamento com o CSV. O arquivo vai em memória, sem
-  /// pasta temporária própria: no celular o share_plus grava o arquivo, e no
-  /// navegador ele é baixado quando o compartilhamento não está disponível.
-  static Future<ShareResult> exportar({
+  static String _textoAlternativa(ResultadoProva resultado, String letra) {
+    for (final questao in resultado.porQuestao) {
+      for (final alternativa in questao.alternativas) {
+        if (alternativa.letra == letra && alternativa.texto.isNotEmpty) {
+          return alternativa.texto;
+        }
+      }
+    }
+    return '';
+  }
+
+  /// Salva o CSV diretamente no dispositivo ou inicia o download no navegador.
+  static Future<String?> exportar({
     required String conteudo,
     required String nomeArquivo,
     required String assunto,
-  }) {
-    return SharePlus.instance.share(
-      ShareParams(
-        files: [
-          XFile.fromData(
-            utf8.encode(conteudo),
-            name: nomeArquivo,
-            mimeType: 'text/csv',
-          ),
-        ],
-        fileNameOverrides: [nomeArquivo],
-        subject: assunto,
-        title: assunto,
-      ),
+  }) async {
+    final bytes = Uint8List.fromList(utf8.encode('\uFEFF$conteudo'));
+    final resultado = await FilePicker.saveFile(
+      fileName: nomeArquivo,
+      bytes: bytes,
+      mimeType: 'text/csv',
+      dialogTitle: assunto,
     );
+    return resultado?.toString();
+  }
+
+  static List<String> _gabaritoOriginal(ResultadoAluno resultado) {
+    final gabarito = resultado.gabaritoCorreto ?? const <String>[];
+    final snapshot = resultado.questoesSnapshot ?? const [];
+    final original = <String>[];
+    for (var i = 0; i < gabarito.length; i++) {
+      original.add(_letraOriginal(snapshot, i, gabarito[i]));
+    }
+    return original;
+  }
+
+  static String _respostaOriginal(ResultadoAluno resultado, int indice) {
+    if (indice >= resultado.alternativasMarcadas.length) return '';
+    return _letraOriginal(
+      resultado.questoesSnapshot ?? const [],
+      indice,
+      resultado.alternativasMarcadas[indice],
+    );
+  }
+
+  static String _letraOriginal(
+    List<Map<String, dynamic>> snapshot,
+    int indice,
+    String letraVersao,
+  ) {
+    if (indice >= snapshot.length) return letraVersao;
+    final rawAlternativas =
+        snapshot[indice]['alternativas'] as List<dynamic>? ?? const [];
+    final letra = letraVersao.trim().toUpperCase();
+    for (final raw in rawAlternativas) {
+      if (raw is Map) {
+        final letraVersaoAtual = raw['letra']?.toString().trim().toUpperCase();
+        if (letraVersaoAtual == letra) {
+          return raw['letraOriginal']?.toString().trim().toUpperCase() ?? letra;
+        }
+      }
+    }
+    return letra;
   }
 
   static String _decimal(double valor) {

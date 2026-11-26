@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/prova.dart';
@@ -17,11 +18,14 @@ class NovaProvaScreen extends StatefulWidget {
   final TurmaService? turmaService;
   final QuestaoService? questaoService;
 
+  final Prova? prova;
+
   const NovaProvaScreen({
     super.key,
     this.provaService,
     this.turmaService,
     this.questaoService,
+    this.prova,
   });
 
   @override
@@ -52,6 +56,25 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
   final List<String> _questoesSelecionadas = [];
   bool _salvando = false;
 
+  List<Questao> _questoesOriginais = const [];
+
+  Prova? get _provaOriginal => widget.prova;
+  bool get _editando => widget.prova != null;
+
+  bool get _possuiResultados {
+    final resumo = _provaOriginal?.resumoResultado;
+    if (resumo == null) return false;
+    final corrigidas = (resumo['totalFolhasCorrigidas'] as num?)?.toInt();
+    return corrigidas == null || corrigidas > 0;
+  }
+
+  bool get _mesmasQuestoes =>
+      _provaOriginal != null &&
+      listEquals(_provaOriginal!.extrairQuestoesIds(), _questoesSelecionadas);
+
+  bool get _mesmaTurma =>
+      _provaOriginal != null && _provaOriginal!.turma.id == _turma?.id;
+
   List<Questao> get _questoesEscolhidas => [
     for (final id in _questoesSelecionadas)
       ..._questoesDisponiveis.where((questao) => questao.id == id),
@@ -75,13 +98,14 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
     super.initState();
     _provaService = widget.provaService ?? ProvaService();
     _turmaService = widget.turmaService ?? TurmaService();
+    _preencherComProva();
     _turmasSub = _turmaService.monitorarTurmas().listen(
       (turmas) {
         setState(() {
           _turmas = turmas;
           _carregandoTurmas = false;
-          if (_turma != null && !turmas.any((t) => t.id == _turma!.id)) {
-            _turma = null;
+          if (_turma != null) {
+            _turma = turmas.where((t) => t.id == _turma!.id).firstOrNull;
           }
         });
       },
@@ -98,6 +122,29 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
     _escutarQuestoes();
   }
 
+  void _preencherComProva() {
+    final prova = _provaOriginal;
+    if (prova == null) return;
+
+    final ids = prova.extrairQuestoesIds();
+    final gravadas = prova.questoes.whereType<Questao>().toList();
+    _questoesOriginais = [
+      for (final id in ids) ...gravadas.where((questao) => questao.id == id),
+    ];
+
+    _nome = prova.nome;
+    _turma = prova.turma;
+    _dataAplicacao = DateUtils.dateOnly(prova.dataAplicacao);
+    _quantidadeQuestoes = prova.quantidadeQuestoes;
+    _embaralharQuestoes = prova.embaralharQuestoes;
+    _embaralharAlternativas = prova.embaralharAlternativas;
+    _numeroVersoes = prova.numeroVersoes;
+    _questoesSelecionadas
+      ..clear()
+      ..addAll(ids);
+    _questoesDisponiveis = List.of(_questoesOriginais);
+  }
+
   @override
   void dispose() {
     _turmasSub?.cancel();
@@ -110,11 +157,16 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
     _questoesSub = _questaoService.monitorarQuestoes().listen(
       (questoes) {
         setState(() {
-          _questoesDisponiveis = questoes;
+          _questoesDisponiveis = [
+            ...questoes,
+            ..._questoesOriginais.where(
+              (original) => !questoes.any((q) => q.id == original.id),
+            ),
+          ];
           _carregandoQuestoes = false;
           _erroQuestoes = null;
           _questoesSelecionadas.removeWhere(
-            (id) => !questoes.any((questao) => questao.id == id),
+            (id) => !_questoesDisponiveis.any((questao) => questao.id == id),
           );
         });
       },
@@ -200,7 +252,145 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
       return;
     }
 
-    _salvar(ProvaStatus.ativa);
+    if (_editando) {
+      _salvarEdicao();
+    } else {
+      _salvar(ProvaStatus.ativa);
+    }
+  }
+
+  Future<bool> _confirmarDescarteResultados() async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Descartar correções?',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Esta prova já tem correções salvas. Alterar as questões ou a turma '
+          'faz com que os resultados deixem de corresponder à prova, por isso '
+          'eles serão removidos e a prova precisará ser corrigida novamente.',
+          style: TextStyle(color: Color(0xFF64748B), height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Descartar e salvar',
+              style: TextStyle(
+                color: Color(0xFFEF4444),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return confirmado == true;
+  }
+
+  Future<void> _salvarEdicao() async {
+    final original = _provaOriginal;
+    final turma = _turma;
+    if (original == null || turma == null || _salvando || !_etapaValida) {
+      return;
+    }
+
+    final mesmasQuestoes =
+        _mesmasQuestoes && _questoesOriginais.length == _quantidadeQuestoes;
+    final questoes = mesmasQuestoes ? _questoesOriginais : _questoesEscolhidas;
+
+    if (questoes.length != _quantidadeQuestoes) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('A prova precisa ter exatamente $_quantidadeQuestoes questões; ${questoes.length} selecionadas.')),
+      );
+      return;
+    }
+
+    final descartarResultados =
+        _possuiResultados && (!mesmasQuestoes || !_mesmaTurma);
+    if (descartarResultados && !await _confirmarDescarteResultados()) return;
+    if (!mounted) return;
+
+    setState(() => _salvando = true);
+
+    try {
+      final gabaritoOriginal = original.gabaritoOficial;
+      final gabarito =
+          mesmasQuestoes && gabaritoOriginal?.length == _quantidadeQuestoes
+              ? gabaritoOriginal!
+              : questoes
+                  .map((questao) => questao.correta.toUpperCase().trim())
+                  .toList();
+
+      final versoesOriginais = original.versoes;
+      final manterVersoes = mesmasQuestoes &&
+          versoesOriginais != null &&
+          versoesOriginais.isNotEmpty &&
+          original.embaralharQuestoes == _embaralharQuestoes &&
+          original.embaralharAlternativas == _embaralharAlternativas &&
+          original.numeroVersoes == _numeroVersoes;
+      final versoes = manterVersoes
+          ? versoesOriginais
+          : GeracaoVersoesService().gerarVersoes(
+              questoes: questoes,
+              embaralharQuestoes: _embaralharQuestoes,
+              embaralharAlternativas: _embaralharAlternativas,
+              numeroVersoes: _numeroVersoes,
+            );
+
+      await _provaService.atualizarProva(
+        Prova(
+          id: original.id,
+          nome: _nome.trim(),
+          turma: turma,
+          dataAplicacao: _dataAplicacao,
+          quantidadeQuestoes: _quantidadeQuestoes,
+          questoes: questoes,
+          status: original.status,
+          embaralharQuestoes: _embaralharQuestoes,
+          embaralharAlternativas: _embaralharAlternativas,
+          numeroVersoes: _numeroVersoes,
+          versoes: versoes,
+          gabaritoOficial: gabarito,
+          resumoResultado:
+              descartarResultados ? null : original.resumoResultado,
+          criadoEm: original.criadoEm,
+        ),
+        descartarResultados: descartarResultados,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+
+      final mensagem = e is ArgumentError
+          ? '${e.message}'
+          : e.toString().replaceFirst('Exception: ', '');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(mensagem),
+          backgroundColor: const Color(0xFFD32F2F),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _salvando = false);
+      }
+    }
   }
 
   Future<void> _salvar(ProvaStatus status) async {
@@ -299,7 +489,11 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
         bottom: false,
         child: Column(
           children: [
-            _WizardHeader(etapa: _etapa, onBack: _voltar),
+            _WizardHeader(
+              etapa: _etapa,
+              onBack: _voltar,
+              titulo: _editando ? 'Editar Prova' : 'Nova Prova',
+            ),
             Expanded(
               child: IndexedStack(
                 index: _etapa,
@@ -348,6 +542,7 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
             _WizardFooter(
               etapa: _etapa,
               salvando: _salvando,
+              editando: _editando,
               onContinue: _etapaValida && !_salvando ? _avancar : null,
               onSaveDraft: _etapaValida && !_salvando
                   ? () => _salvar(ProvaStatus.rascunho)
@@ -363,8 +558,13 @@ class _NovaProvaScreenState extends State<NovaProvaScreen> {
 class _WizardHeader extends StatelessWidget {
   final int etapa;
   final VoidCallback onBack;
+  final String titulo;
 
-  const _WizardHeader({required this.etapa, required this.onBack});
+  const _WizardHeader({
+    required this.etapa,
+    required this.onBack,
+    required this.titulo,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -390,9 +590,9 @@ class _WizardHeader extends StatelessWidget {
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 22),
-              const Text(
-                'Nova Prova',
-                style: TextStyle(
+              Text(
+                titulo,
+                style: const TextStyle(
                   color: Color(0xFF101827),
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -525,7 +725,8 @@ class _DadosStep extends StatelessWidget {
       _FormCard(
         children: [
           const _FieldLabel('NOME DA PROVA'),
-          TextField(
+          TextFormField(
+            initialValue: nome,
             onChanged: onNameChanged,
             decoration: _inputDecoration('Ex: 1ª Prova Bimestral — Citologia'),
           ),
@@ -567,8 +768,13 @@ class _DadosStep extends StatelessWidget {
             onTap: () async {
               final escolhida = await showDatePicker(
                 context: context,
-                firstDate: DateTime(2024),
-                lastDate: DateTime(DateTime.now().year + 5),
+                firstDate: dataAplicacao.isBefore(DateTime(2024))
+                    ? dataAplicacao
+                    : DateTime(2024),
+                lastDate:
+                    dataAplicacao.isAfter(DateTime(DateTime.now().year + 5))
+                        ? dataAplicacao
+                        : DateTime(DateTime.now().year + 5),
                 initialDate: dataAplicacao,
               );
               if (escolhida != null) onDateChanged(escolhida);
@@ -1066,12 +1272,14 @@ class _SummaryRow extends StatelessWidget {
 class _WizardFooter extends StatelessWidget {
   final int etapa;
   final bool salvando;
+  final bool editando;
   final VoidCallback? onContinue;
   final VoidCallback? onSaveDraft;
 
   const _WizardFooter({
     required this.etapa,
     required this.salvando,
+    required this.editando,
     required this.onContinue,
     required this.onSaveDraft,
   });
@@ -1112,12 +1320,16 @@ class _WizardFooter extends StatelessWidget {
                       ),
                     )
                   : Text(
-                      etapa == 2 ? 'Gerar prova' : 'Continuar',
+                      etapa < 2
+                          ? 'Continuar'
+                          : editando
+                              ? 'Salvar alterações'
+                              : 'Gerar prova',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
             ),
           ),
-          if (etapa == 2) ...[
+          if (etapa == 2 && !editando) ...[
             const SizedBox(height: 6),
             TextButton(
               onPressed: onSaveDraft,

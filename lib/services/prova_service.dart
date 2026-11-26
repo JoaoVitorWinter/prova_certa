@@ -8,13 +8,11 @@ class ProvaService {
   final FirebaseFirestore? _firestore;
   final FirebaseAuth? _auth;
 
-  ProvaService({
-    FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
-  })  : _firestore = firestore ??
-            (Firebase.apps.isNotEmpty ? FirebaseFirestore.instance : null),
-        _auth = auth ??
-            (Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null);
+  ProvaService({FirebaseFirestore? firestore, FirebaseAuth? auth})
+    : _firestore =
+          firestore ??
+          (Firebase.apps.isNotEmpty ? FirebaseFirestore.instance : null),
+      _auth = auth ?? (Firebase.apps.isNotEmpty ? FirebaseAuth.instance : null);
 
   FirebaseFirestore get firestore {
     if (_firestore == null) {
@@ -47,6 +45,9 @@ class ProvaService {
   }
 
   void _validar(Prova prova) {
+    if (prova.quantidadeQuestoes < 1 || prova.quantidadeQuestoes > 20) {
+      throw ArgumentError('A prova deve ter entre 1 e 20 questões.');
+    }
     if (prova.numeroVersoes < 1 || prova.numeroVersoes > 4) {
       throw ArgumentError('O número de versões deve estar entre 1 e 4.');
     }
@@ -91,8 +92,10 @@ class ProvaService {
     if (_firestore == null) return const Stream.empty();
     try {
       final uid = _resolveUserId(userId);
-      return _provasRef(uid).snapshots().map((snapshot) =>
-          _ordenar(snapshot.docs.map((doc) => Prova.fromFirestore(doc))));
+      return _provasRef(uid).snapshots().map(
+        (snapshot) =>
+            _ordenar(snapshot.docs.map((doc) => Prova.fromFirestore(doc))),
+      );
     } catch (e) {
       return Stream.error(e);
     }
@@ -118,13 +121,63 @@ class ProvaService {
     final docRef = _provasRef(uid).doc();
     final nova = prova.copyWith(id: docRef.id);
 
-    await docRef.set({
-      'id': docRef.id,
-      ...nova.toFirestore(),
-    });
+    await docRef.set({'id': docRef.id, ...nova.toFirestore()});
 
     return nova.copyWith(
       criadoEm: DateTime.now(),
+      atualizadoEm: DateTime.now(),
+    );
+  }
+
+  Future<Prova> atualizarProva(
+    Prova prova, {
+    bool descartarResultados = false,
+    String? userId,
+  }) async {
+    if (prova.id.isEmpty) {
+      throw ArgumentError('A prova precisa ter um identificador.');
+    }
+    _validar(prova);
+
+    final uid = _resolveUserId(userId);
+    final provaRef = _provasRef(uid).doc(prova.id);
+    final dados = prova.toFirestore()..remove('criadoEm');
+
+    if (!descartarResultados) {
+      await provaRef.update(dados);
+      return prova.copyWith(atualizadoEm: DateTime.now());
+    }
+
+    final resultados = await provaRef.collection('resultados').get();
+    const tamanhoLote = 450;
+    final docs = resultados.docs;
+    for (var inicio = 0; inicio < docs.length; inicio += tamanhoLote) {
+      final lote = firestore.batch();
+      for (final doc in docs.skip(inicio).take(tamanhoLote)) {
+        lote.delete(doc.reference);
+      }
+      await lote.commit();
+    }
+    await provaRef.update({
+      ...dados,
+      'resumoResultado': FieldValue.delete(),
+    });
+
+    return Prova(
+      id: prova.id,
+      nome: prova.nome,
+      turma: prova.turma,
+      dataAplicacao: prova.dataAplicacao,
+      quantidadeQuestoes: prova.quantidadeQuestoes,
+      questoes: prova.questoes,
+      status: prova.status,
+      embaralharQuestoes: prova.embaralharQuestoes,
+      embaralharAlternativas: prova.embaralharAlternativas,
+      numeroVersoes: prova.numeroVersoes,
+      versoes: prova.versoes,
+      gabaritoOficial: prova.gabaritoOficial,
+      questoesIds: prova.questoesIds,
+      criadoEm: prova.criadoEm,
       atualizadoEm: DateTime.now(),
     );
   }
