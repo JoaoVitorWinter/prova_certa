@@ -11,7 +11,6 @@ import '../services/questao_service.dart';
 import '../services/turma_service.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'about_app_screen.dart';
-import 'appearance_screen.dart';
 import 'corrigir_prova_screen.dart';
 import 'edit_profile_screen.dart';
 import 'home_screen.dart';
@@ -70,13 +69,11 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final auth = authService ?? AuthService();
     final currentUid = auth.currentUserId;
 
     return Scaffold(
-      backgroundColor:
-          isDark ? const Color(0xFF0F172A) : const Color(0xFFF5F7FB),
+      backgroundColor: const Color(0xFFF5F7FB),
       body: SafeArea(
         child: Column(
           children: [
@@ -85,22 +82,16 @@ class ProfileScreen extends StatelessWidget {
               height: 58,
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 23),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              decoration: const BoxDecoration(
+                color: Colors.white,
                 border: Border(
-                  bottom: BorderSide(
-                    color: isDark
-                        ? const Color(0xFF334155)
-                        : const Color(0xFFE4E9F1),
-                  ),
+                  bottom: BorderSide(color: Color(0xFFE4E9F1)),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'Perfil',
                 style: TextStyle(
-                  color: isDark
-                      ? const Color(0xFFF8FAFC)
-                      : const Color(0xFF101827),
+                  color: Color(0xFF101827),
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                 ),
@@ -151,18 +142,6 @@ class ProfileScreen extends StatelessWidget {
                               builder: (context) => EditProfileScreen(
                                 authService: authService,
                               ),
-                            ),
-                          ),
-                        ),
-                        _SettingsItemData(
-                          icon: Icons.palette_rounded,
-                          iconColor: const Color(0xFFFF6F91),
-                          title: 'Aparência',
-                          subtitle: 'Tema claro / escuro',
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AppearanceScreen(),
                             ),
                           ),
                         ),
@@ -300,23 +279,19 @@ class _ProfileCardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 17, 16, 18),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: isDark
-            ? null
-            : const [
-                BoxShadow(
-                  color: Color(0x0D1B2740),
-                  blurRadius: 5,
-                  offset: Offset(0, 2),
-                ),
-              ],
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D1B2740),
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -325,8 +300,8 @@ class _ProfileCardContent extends StatelessWidget {
           Text(
             nome,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF101827),
+            style: const TextStyle(
+              color: Color(0xFF101827),
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -335,8 +310,8 @@ class _ProfileCardContent extends StatelessWidget {
           Text(
             email,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF7988A0),
+            style: const TextStyle(
+              color: Color(0xFF7988A0),
               fontSize: 11,
             ),
           ),
@@ -386,18 +361,16 @@ class _SchoolBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF312E81) : const Color(0xFFF0EDFF),
+        color: const Color(0xFFF0EDFF),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         nomeInstituicao,
-        style: TextStyle(
-          color: isDark ? const Color(0xFFA5B4FC) : const Color(0xFF6849E8),
+        style: const TextStyle(
+          color: Color(0xFF6849E8),
           fontSize: 10,
           fontWeight: FontWeight.w500,
         ),
@@ -414,30 +387,26 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       height: 58,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: isDark
-            ? null
-            : const [
-                BoxShadow(
-                  color: Color(0x0D1B2740),
-                  blurRadius: 5,
-                  offset: Offset(0, 2),
-                ),
-              ],
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D1B2740),
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             value,
-            style: TextStyle(
-              color: isDark ? const Color(0xFFA5B4FC) : const Color(0xFF5A43EF),
+            style: const TextStyle(
+              color: Color(0xFF5A43EF),
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -445,8 +414,8 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
-              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFFA0A9BA),
+            style: const TextStyle(
+              color: Color(0xFFA0A9BA),
               fontSize: 9,
             ),
           ),
@@ -550,50 +519,44 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: isDark
-            ? null
-            : const [
-                BoxShadow(
-                  color: Color(0x0D1B2740),
-                  blurRadius: 5,
-                  offset: Offset(0, 2),
-                ),
-              ],
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D1B2740),
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(14, 12, 14, 10),
             child: Text(
               'Configurações',
               style: TextStyle(
-                color:
-                    isDark ? const Color(0xFFF8FAFC) : const Color(0xFF111827),
+                color: Color(0xFF111827),
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          Divider(
+          const Divider(
             height: 1,
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFE8ECF2),
+            color: Color(0xFFE8ECF2),
           ),
           for (var index = 0; index < items.length; index++) ...[
-            _SettingsItem(data: items[index], isDark: isDark),
+            _SettingsItem(data: items[index]),
             if (index != items.length - 1)
-              Divider(
+              const Divider(
                 height: 1,
                 indent: 45,
-                color:
-                    isDark ? const Color(0xFF334155) : const Color(0xFFF0F2F6),
+                color: Color(0xFFF0F2F6),
               ),
           ],
         ],
@@ -604,9 +567,8 @@ class _SettingsCard extends StatelessWidget {
 
 class _SettingsItem extends StatelessWidget {
   final _SettingsItemData data;
-  final bool isDark;
 
-  const _SettingsItem({required this.data, this.isDark = false});
+  const _SettingsItem({required this.data});
 
   @override
   Widget build(BuildContext context) {
@@ -632,10 +594,8 @@ class _SettingsItem extends StatelessWidget {
                 children: [
                   Text(
                     data.title,
-                    style: TextStyle(
-                      color: isDark
-                          ? const Color(0xFFF8FAFC)
-                          : const Color(0xFF111827),
+                    style: const TextStyle(
+                      color: Color(0xFF111827),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -643,19 +603,17 @@ class _SettingsItem extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     data.subtitle,
-                    style: TextStyle(
-                      color: isDark
-                          ? const Color(0xFF94A3B8)
-                          : const Color(0xFF8A97AA),
+                    style: const TextStyle(
+                      color: Color(0xFF8A97AA),
                       fontSize: 10,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(
+            const Icon(
               Icons.chevron_right_rounded,
-              color: isDark ? const Color(0xFF64748B) : const Color(0xFFB0BAC8),
+              color: Color(0xFFB0BAC8),
               size: 20,
             ),
           ],
